@@ -1,0 +1,13 @@
+http:
+  port: "8080"
+
+auth:
+  signing-key: "+lhG9EBipjTp4ASqWOYEHw=="
+  accessTokenTTL: 15m
+  refreshTokenTTL: 1440h #60 days
+
+smtp:
+  host: "smtp.mail.ru"
+  port: 465
+  from: "zes-amur@mail.ru"
+  password: "R2rHv0YQFr7v7yQj83D1"

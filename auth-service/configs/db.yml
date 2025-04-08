@@ -1,0 +1,8 @@
+user-db:
+  port: "5432"
+  host: "localhost"
+  name: "postgres"
+  user: "user"
+token-db:
+  port: "6379"
+  host: "localhost"
