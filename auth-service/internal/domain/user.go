@@ -1,11 +1,24 @@
 package domain
 
+import (
+	"database/sql"
+)
+
 type User struct {
-	Id           string
-	Name         string `json:"name" binding:"required"`
-	Email        string `json:"email" binding:"required"`
-	IsConfirmed  bool
-	PasswordHash string
+	Id             int64
+	Username       string `json:"username" binding:"required"`
+	Email          string `json:"email" binding:"required"`
+	PasswordHash   string
+	Role           string `json:"role"`
+	Status         string `json:"status"`
+	InviteToken    sql.NullString
+	InviteTokenExp sql.NullTime
+}
+
+type CreateUserInvite struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Role     string `json:"role" binding:"required,oneof=ADMIN DOCTOR PATIENT"`
 }
 
 type UserSignUpInput struct {

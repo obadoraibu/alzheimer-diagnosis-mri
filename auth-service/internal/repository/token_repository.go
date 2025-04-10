@@ -2,13 +2,15 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/obadoraibu/go-auth/internal/config"
 	"github.com/obadoraibu/go-auth/internal/domain"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type TokenRedisRepository struct {
@@ -49,16 +51,33 @@ func (r *TokenRedisRepository) Close() error {
 	return nil
 }
 
-func (r *Repository) AddToken(fingerprint, refresh, email string) error {
+// new
+func (r *Repository) AddToken(fingerprint, refresh, email, role string) error {
+	type TokenData struct {
+		Email string `json:"email"`
+		Role  string `json:"role"`
+	}
+
 	ctx := context.Background()
 	ttl := time.Hour * 24 * 60
 
 	key := fmt.Sprintf("%s:%s", fingerprint, refresh)
 
-	err := r.Tokens.client.Set(ctx, key, email, ttl).Err()
+	data := TokenData{
+		Email: email,
+		Role:  role,
+	}
+
+	value, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
+
+	err = r.Tokens.client.Set(ctx, key, value, ttl).Err()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

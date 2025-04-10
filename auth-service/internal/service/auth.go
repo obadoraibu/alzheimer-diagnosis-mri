@@ -2,19 +2,17 @@ package service
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/obadoraibu/go-auth/internal/domain"
 	"github.com/obadoraibu/go-auth/pkg/hash"
-	"github.com/sirupsen/logrus"
-	"time"
 )
 
+// new
 func (s *Service) SignIn(c *gin.Context, req *domain.UserSignInInput) (*domain.UserSignInResponse, error) {
 	u, err := s.repo.FindUserByEmail(req.Email)
 	if err != nil {
 		return nil, err
 	}
-	if u.IsConfirmed == false {
+	if u.Status != "active" {
 		return nil, domain.ErrEmailIsNotConfirmed
 	}
 
@@ -22,14 +20,14 @@ func (s *Service) SignIn(c *gin.Context, req *domain.UserSignInInput) (*domain.U
 		return nil, domain.ErrWrongEmailOrPassword
 	}
 
-	accessToken, err := s.tokenManager.GenerateJWT(req.Email)
+	accessToken, err := s.tokenManager.GenerateJWT(req.Email, u.Role)
 	if err != nil {
 		return nil, err
 	}
 
 	refreshToken := s.tokenManager.GenerateRefresh()
 
-	if err := s.repo.AddToken(req.Fingerprint, refreshToken, req.Email); err != nil {
+	if err := s.repo.AddToken(req.Fingerprint, refreshToken, req.Email, u.Role); err != nil {
 		return nil, err
 	}
 
@@ -41,54 +39,60 @@ func (s *Service) SignIn(c *gin.Context, req *domain.UserSignInInput) (*domain.U
 	return response, nil
 }
 
-func (s *Service) SignUp(c *gin.Context, inp *domain.UserSignUpInput) error {
+// func (s *Service) SignUp(c *gin.Context, inp *domain.UserSignUpInput) error {
 
-	hashesPassword, err := hash.HashPassword(inp.Password)
-	if err != nil {
-		return err
-	}
+// 	hashesPassword, err := hash.HashPassword(inp.Password)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	u := &domain.User{
-		Name:         inp.Name,
-		Email:        inp.Email,
-		PasswordHash: hashesPassword,
-		IsConfirmed:  false,
-	}
+// 	u := &domain.User{
+// 		Name:         inp.Name,
+// 		Email:        inp.Email,
+// 		PasswordHash: hashesPassword,
+// 		IsConfirmed:  false,
+// 	}
 
-	code := uuid.New()
-	duration, err := time.ParseDuration("5m")
-	if err != nil {
-		return err
-	}
+// 	code := uuid.New()
+// 	duration, err := time.ParseDuration("5m")
+// 	if err != nil {
+// 		return err
+// 	}
 
-	u, err = s.repo.CreateUserAndEmailConfirmation(u, code.String(), time.Now().Add(duration))
-	if err != nil {
-		return err
-	}
+// 	u, err = s.repo.CreateUserAndEmailConfirmation(u, code.String(), time.Now().Add(duration))
+// 	if err != nil {
+// 		return err
+// 	}
 
-	logrus.Printf("user %s has been created", u.Id)
+// 	logrus.Printf("user %s has been created", u.Id)
 
-	err = s.emailSender.SendConfirmationEmail(u.Email, code.String())
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// 	err = s.emailSender.SendConfirmationEmail(u.Email, code.String())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
+// new
 func (s *Service) Refresh(refresh, fingerprint string) (*domain.UserRefreshResponse, error) {
 	email, err := s.repo.FindAndDeleteRefreshToken(refresh, fingerprint)
 	if err != nil {
 		return nil, err
 	}
 
-	access, err := s.tokenManager.GenerateJWT(email)
+	u, err := s.repo.FindUserByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	access, err := s.tokenManager.GenerateJWT(email, u.Role)
 	if err != nil {
 		return nil, err
 	}
 
 	newRefresh := s.tokenManager.GenerateRefresh()
 
-	if err := s.repo.AddToken(fingerprint, newRefresh, email); err != nil {
+	if err := s.repo.AddToken(fingerprint, newRefresh, email, u.Role); err != nil {
 		return nil, err
 	}
 
@@ -116,9 +120,14 @@ func (s *Service) UserInfo(email string) (*domain.User, error) {
 	return u, nil
 }
 
-func (s *Service) ConfirmEmail(code string) error {
+func (s *Service) CompleteInvite(code string, password string) error {
 
-	err := s.repo.ConfirmEmail(code)
+	hashesPassword, err := hash.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	err = s.repo.CompleteInvite(code, hashesPassword)
 	if err != nil {
 		return err
 	}

@@ -3,11 +3,12 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/obadoraibu/go-auth/internal/config"
 	"github.com/obadoraibu/go-auth/internal/domain"
-	"time"
 )
 
 type UserPostgresRepository struct {
@@ -39,31 +40,28 @@ func (r *UserPostgresRepository) Close() error {
 	return nil
 }
 
-func (r *Repository) CreateUserAndEmailConfirmation(u *domain.User, confirmationCode string, expiresAt time.Time) (*domain.User, error) {
-	tx, err := r.Users.db.Begin()
+func (r *Repository) CreateUserInvite(u *domain.User) (*domain.User, error) {
+	query := `
+		INSERT INTO "users" 
+			(username, email, role, status, invite_token, invite_token_expires_at)
+		VALUES 
+			($1, $2, $3, $4, $5, $6)
+		RETURNING id
+	`
+
+	err := r.Users.db.QueryRow(query,
+		u.Username,
+		u.Email,
+		u.Role,
+		u.Status,
+		u.InviteToken.String,
+		u.InviteTokenExp.Time,
+	).Scan(&u.Id)
+
 	if err != nil {
-		return nil, err
-	}
-
-	defer tx.Rollback()
-
-	if err := r.Users.db.QueryRow("INSERT INTO \"users\" (username, email, password_hash, is_confirmed) VALUES ($1, $2, $3, $4) RETURNING id",
-		u.Name, u.Email, u.PasswordHash, u.IsConfirmed).Scan(&u.Id); err != nil {
-		pqErr, ok := err.(*pq.Error)
-		if ok {
-			if pqErr.Code == "23505" {
-				return nil, domain.ErrUserAlreadyExists
-			}
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			return nil, domain.ErrUserAlreadyExists
 		}
-		return nil, err
-	}
-
-	if _, err := r.Users.db.Exec("INSERT INTO email_confirmations (user_id, code, expires_at) VALUES ($1, $2, $3)",
-		u.Id, confirmationCode, expiresAt); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -73,7 +71,7 @@ func (r *Repository) CreateUserAndEmailConfirmation(u *domain.User, confirmation
 func (r *Repository) FindUserByEmail(email string) (*domain.User, error) {
 	u := &domain.User{Email: email}
 	if err := r.Users.db.QueryRow("SELECT * FROM \"users\"  WHERE email = $1",
-		email).Scan(&u.Id, &u.Name, &u.Email, &u.PasswordHash, &u.IsConfirmed); err != nil {
+		email).Scan(&u.Id, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.InviteToken, &u.InviteTokenExp); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.ErrWrongEmailOrPassword
 		}
@@ -118,4 +116,52 @@ func (r *Repository) ConfirmEmail(code string) error {
 	}
 
 	return nil
+}
+
+func (r *Repository) CompleteInvite(code string, passwordHash string) error {
+	tx, err := r.Users.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var userID int
+	var currentStatus string
+	var expiresAt time.Time
+
+	query := `
+		SELECT id, status, invite_token_expires_at 
+		FROM users 
+		WHERE invite_token = $1
+	`
+	err = tx.QueryRow(query, code).Scan(&userID, &currentStatus, &expiresAt)
+	if err == sql.ErrNoRows {
+		return domain.ErrWrongInviteCode
+	}
+	if err != nil {
+		return err
+	}
+
+	if currentStatus != "invited" {
+		return domain.ErrInviteAlreadyUsed
+	}
+
+	if time.Now().After(expiresAt) {
+		return domain.ErrInviteExpired
+	}
+
+	updateQuery := `
+		UPDATE users 
+		SET password_hash = $1,
+		    status = 'active',
+		    invite_token = NULL,
+		    invite_token_expires_at = NULL
+		WHERE id = $2
+	`
+	_, err = tx.Exec(updateQuery, passwordHash, userID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

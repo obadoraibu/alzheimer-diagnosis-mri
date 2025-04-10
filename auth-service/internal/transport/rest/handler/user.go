@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"net/http"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"net/http"
+	"github.com/obadoraibu/go-auth/internal/domain"
 )
 
 func (h *Handler) UserInfo(c *gin.Context) {
@@ -39,4 +41,30 @@ func (h *Handler) UserInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, u)
+}
+
+func (h *Handler) CreateUserInvite(c *gin.Context) {
+	r := &domain.CreateUserInvite{}
+	if err := c.ShouldBindJSON(&r); err != nil {
+		sendErrorResponse(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	err := h.service.CreateUserInvite(c, r)
+	if err != nil {
+		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (h *Handler) ListUsers(c *gin.Context) {
+	err := h.service.GetUsersList(c)
+	if err != nil {
+		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.Status(http.StatusOK)
 }

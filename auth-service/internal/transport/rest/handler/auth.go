@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,26 +8,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (h *Handler) SignUp(c *gin.Context) {
-	r := &domain.UserSignUpInput{}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid request body")
-		return
-	}
+// DOESNT WORK
+// func (h *Handler) SignUp(c *gin.Context) {
+// 	r := &domain.UserSignUpInput{}
+// 	if err := c.ShouldBindJSON(&r); err != nil {
+// 		sendErrorResponse(c, http.StatusBadRequest, "invalid request body")
+// 		return
+// 	}
 
-	err := h.service.SignUp(c, r)
-	if err != nil {
-		if errors.Is(err, domain.ErrUserAlreadyExists) {
-			sendErrorResponse(c, http.StatusBadRequest, err.Error())
-			return
-		}
-		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
-		return
-	}
+// 	err := h.service.SignUp(c, r)
+// 	if err != nil {
+// 		if errors.Is(err, domain.ErrUserAlreadyExists) {
+// 			sendErrorResponse(c, http.StatusBadRequest, err.Error())
+// 			return
+// 		}
+// 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
 
-	c.Status(http.StatusOK)
-}
+// 	c.Status(http.StatusOK)
+// }
 
+// new
 func (h *Handler) SignIn(c *gin.Context) {
 	r := &domain.UserSignInInput{}
 	if err := c.ShouldBindJSON(&r); err != nil {
@@ -63,6 +64,7 @@ func (h *Handler) SignIn(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// new
 func (h *Handler) Refresh(c *gin.Context) {
 	type request struct {
 		Fingerprint string `json:"fingerprint" binding:"required"`
@@ -124,18 +126,39 @@ func (h *Handler) Revoke(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (h *Handler) ConfirmEmail(c *gin.Context) {
+// func (h *Handler) ConfirmEmail(c *gin.Context) {
+// 	code := c.Param("code")
+
+// 	err := h.service.ConfirmEmail(code)
+// 	if err != nil {
+// 		if err == domain.ErrWrongEmailConfirmationCode {
+// 			sendErrorResponse(c, http.StatusBadRequest, "wrong confirmation code")
+// 			return
+// 		}
+// 		sendErrorResponse(c, http.StatusInternalServerError, "cannot confirm email")
+// 		return
+// 	}
+// 	logrus.Println("email confirmed")
+// 	c.Redirect(http.StatusFound, "http://localhost:3000/sign-in")
+// }
+
+func (h *Handler) CompleteInvite(c *gin.Context) {
+	type request struct {
+		Password string `json:"password" binding:"required"`
+	}
 	code := c.Param("code")
 
-	err := h.service.ConfirmEmail(code)
+	r := &request{}
+	if err := c.ShouldBindJSON(&r); err != nil {
+		sendErrorResponse(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	err := h.service.CompleteInvite(code, r.Password)
 	if err != nil {
-		if err == domain.ErrWrongEmailConfirmationCode {
-			sendErrorResponse(c, http.StatusBadRequest, "wrong confirmation code")
-			return
-		}
 		sendErrorResponse(c, http.StatusInternalServerError, "cannot confirm email")
 		return
 	}
-	logrus.Println("email confirmed")
+	logrus.Println("user activated")
 	c.Redirect(http.StatusFound, "http://localhost:3000/sign-in")
 }

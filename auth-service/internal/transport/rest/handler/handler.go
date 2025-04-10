@@ -8,11 +8,12 @@ import (
 
 type Service interface {
 	SignIn(c *gin.Context, r *domain.UserSignInInput) (*domain.UserSignInResponse, error)
-	SignUp(c *gin.Context, r *domain.UserSignUpInput) error
+	//SignUp(c *gin.Context, r *domain.UserSignUpInput) error
 	Refresh(refresh, fingerprint string) (*domain.UserRefreshResponse, error)
 	Revoke(refresh, fingerprint string) error
 	UserInfo(email string) (*domain.User, error)
-	ConfirmEmail(code string) error
+	CompleteInvite(code string, password string) error
+	CreateUserInvite(c *gin.Context, r *domain.CreateUserInvite) error
 }
 
 type Handler struct {
@@ -49,12 +50,32 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 	router.Use(cors.New(config))
 
-	router.POST("/sign-up", h.SignUp)
+	auth := router.Group("/")
+	auth.Use(h.AuthMiddleware())
+	{
+		adminGroup := auth.Group("/admin")
+		adminGroup.Use(h.AdminMiddleware())
+		{
+			adminGroup.POST("/users", h.CreateUserInvite) // Пригласить нового пользователя (по умолчанию DOCTOR)
+			adminGroup.GET("/users", h.ListUsers)               
+			//adminGroup.GET("/users/:id", h.GetUserByID)         // Детальная инфа
+			//adminGroup.PUT("/users/:id", h.UpdateUser)          // Изменить (роль, статус, ФИО и т.д.)
+			//adminGroup.DELETE("/users/:id", h.DeleteUser)       // Удалить/заблокировать и т.п.
+		}
+
+	}
+
+	//router.POST("/complete-invite", h.CompleteInvite)
+
+	// router.POST("/sign-up", h.SignUp)
+
+	router.POST("/complete-invite/:code", h.CompleteInvite)
+
 	router.GET("/resource", h.AuthMiddleware(), h.UserInfo)
 	router.POST("/sign-in", h.SignIn)
 	router.POST("/refresh", h.Refresh)
 	router.POST("/revoke", h.Revoke)
-	router.GET("/email-confirm/:code", h.ConfirmEmail)
+	//router.GET("/email-confirm/:code", h.ConfirmEmail)
 
 	return router
 }

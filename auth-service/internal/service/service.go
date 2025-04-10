@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/obadoraibu/go-auth/internal/domain"
-	"time"
 )
 
 type Service struct {
@@ -12,22 +11,24 @@ type Service struct {
 }
 
 type Repository interface {
-	CreateUserAndEmailConfirmation(u *domain.User, confirmationCode string, expiresAt time.Time) (*domain.User, error)
+	//CreateUserAndEmailConfirmation(u *domain.User, confirmationCode string, expiresAt time.Time) (*domain.User, error)
 	FindUserByEmail(email string) (*domain.User, error)
 	ConfirmEmail(code string) error
-	AddToken(fingerprint, refresh, email string) error
+	AddToken(fingerprint, refresh, email, role string) error
 	DeleteToken(u *domain.User) error
 	FindAndDeleteRefreshToken(refresh, fingerprint string) (string, error)
 	Close() error
+	CreateUserInvite(u *domain.User) (*domain.User, error)
+	CompleteInvite(code, passwordHash string) error
 }
 
 type TokenManager interface {
-	GenerateJWT(email string) (string, error)
+	GenerateJWT(email, role string) (string, error)
 	GenerateRefresh() string
 }
 
 type EmailSender interface {
-	SendConfirmationEmail(to, code string) error
+	SendInvEmail(to, code string) error
 }
 
 type Dependencies struct {

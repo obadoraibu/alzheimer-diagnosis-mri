@@ -17,15 +17,15 @@ func NewEmailSender(cfg *config.SmtpConfig) *EmailSender {
 	}
 }
 
-func (s *EmailSender) SendConfirmationEmail(to, code string) error {
+func (s *EmailSender) SendInvEmail(to, code string) error {
 	m := gomail.NewMessage()
 	m.SetHeader("From", s.config.From)
 	m.SetHeader("To", to)
 	m.SetHeader("Subject", "Confirmation Email")
 
 	m.SetBody("text/html", fmt.Sprintf(
-		"Thank you for signing up! Please confirm your email by clicking the following link:<br/><br/>"+
-			"<a href='http://localhost:8080/email-confirm/%s'>Confirm Email</a>",
+		"Вас пригласили в веб-приложение для анализа МРТ-снимков:<br/><br/>"+
+			"<a href='http://localhost:8080/email-confirm/%s'>Регистрация</a>",
 		code,
 	))
 

@@ -1,10 +1,11 @@
 package auth
 
 import (
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"github.com/obadoraibu/go-auth/internal/config"
-	"time"
 )
 
 type TokenManager struct {
@@ -21,7 +22,7 @@ func NewTokenManager(cfg *config.AuthConfig) *TokenManager {
 	}
 }
 
-func (tm *TokenManager) GenerateJWT(email string) (string, error) {
+func (tm *TokenManager) GenerateJWT(email, role string) (string, error) {
 
 	duration, err := time.ParseDuration(tm.authTokenTTL)
 	if err != nil {
@@ -31,6 +32,7 @@ func (tm *TokenManager) GenerateJWT(email string) (string, error) {
 	claims := jwt.MapClaims{
 		"email": email,
 		"exp":   time.Now().Add(duration).Unix(),
+		"role":  role,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
