@@ -2,6 +2,10 @@ package app
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/obadoraibu/go-auth/internal/config"
 	"github.com/obadoraibu/go-auth/internal/repository"
 	"github.com/obadoraibu/go-auth/internal/service"
@@ -10,9 +14,6 @@ import (
 	"github.com/obadoraibu/go-auth/pkg/auth"
 	"github.com/obadoraibu/go-auth/pkg/smtp"
 	"github.com/sirupsen/logrus"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func Run(mainConfigPath, dbConfigPath string) error {
@@ -38,6 +39,12 @@ func Run(mainConfigPath, dbConfigPath string) error {
 	logrus.Println(cfg.SmtpConfig.Port)
 	logrus.Println(cfg.SmtpConfig.Password)
 	logrus.Println(os.Getenv("SMTP_PASSWORD"))
+
+	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.Endpoint)
+	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.AccessKey)
+	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.SecretKey)
+	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.Bucket)
+	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.UseSSL)
 
 	repo, err := repository.NewRepository(cfg.DatabaseConfig)
 	if err != nil {

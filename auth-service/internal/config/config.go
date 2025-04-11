@@ -15,6 +15,7 @@ type Config struct {
 type DatabaseConfig struct {
 	UserRepositoryConfig  *UserRepositoryConfig  `yaml:"user-db"`
 	TokenRepositoryConfig *TokenRepositoryConfig `yaml:"token-db"`
+	MinIORepositoryConfig *MinIOConfig           `yaml:"minio"`
 }
 
 type HttpConfig struct {
@@ -48,6 +49,14 @@ type TokenRepositoryConfig struct {
 	Password string `yaml:"password" env:"TOKEN_DB_PASSWORD"`
 }
 
+type MinIOConfig struct {
+	Endpoint  string `yaml:"endpoint" env:"MINIO_ENDPOINT" env-default:"minio:9000"`
+	AccessKey string `yaml:"access_key" env:"MINIO_ACCESS_KEY" env-default:"minioadmin"`
+	SecretKey string `yaml:"secret_key" env:"MINIO_SECRET_KEY" env-default:"minioadmin"`
+	Bucket    string `yaml:"bucket" env:"MINIO_BUCKET" env-default:"mri-scans"`
+	UseSSL    bool   `yaml:"use_ssl" env:"MINIO_SSL" env-default:"false"`
+}
+
 func NewConfig(mainConfigPath, dbConfigPath string) (*Config, error) {
 	var cfg Config
 
@@ -59,6 +68,7 @@ func NewConfig(mainConfigPath, dbConfigPath string) (*Config, error) {
 
 	var userCfg UserRepositoryConfig
 	var tokenCfg TokenRepositoryConfig
+	var minIOCfg MinIOConfig
 
 	err = cleanenv.ReadConfig(dbConfigPath, &userCfg)
 	if err != nil {
@@ -72,9 +82,16 @@ func NewConfig(mainConfigPath, dbConfigPath string) (*Config, error) {
 		return nil, err
 	}
 
+	err = cleanenv.ReadConfig(dbConfigPath, &minIOCfg)
+	if err != nil {
+		logrus.Error("cannot read the config")
+		return nil, err
+	}
+
 	cfg.DatabaseConfig = &DatabaseConfig{
 		UserRepositoryConfig:  &userCfg,
 		TokenRepositoryConfig: &tokenCfg,
+		MinIORepositoryConfig: &minIOCfg,
 	}
 
 	return &cfg, nil

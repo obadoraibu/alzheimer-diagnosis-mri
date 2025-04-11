@@ -7,6 +7,7 @@ import (
 type Repository struct {
 	Users  *UserPostgresRepository
 	Tokens *TokenRedisRepository
+	MinIO  *MinIOClient
 	config *config.DatabaseConfig
 }
 
@@ -39,6 +40,12 @@ func NewRepository(config *config.DatabaseConfig) (*Repository, error) {
 		return nil, err
 	}
 	repo.Tokens = tokenRepository
+
+	minioClient, err := NewMinIOClient(config.MinIORepositoryConfig)
+	if err != nil {
+		return nil, err
+	}
+	repo.MinIO = minioClient
 
 	return &repo, nil
 }

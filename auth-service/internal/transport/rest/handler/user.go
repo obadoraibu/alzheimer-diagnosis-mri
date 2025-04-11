@@ -2,46 +2,13 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/obadoraibu/go-auth/internal/domain"
 )
 
-func (h *Handler) UserInfo(c *gin.Context) {
 
-	tokenInterface, exists := c.Get("AccessToken")
-	if !exists {
-		sendErrorResponse(c, http.StatusUnauthorized, "token not found in context")
-		return
-	}
-
-	token, ok := tokenInterface.(*jwt.Token)
-	if !ok {
-		sendErrorResponse(c, http.StatusUnauthorized, "invalid token type")
-		return
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		sendErrorResponse(c, http.StatusUnauthorized, "unable to extract claims")
-		return
-	}
-
-	email, ok := claims["email"].(string)
-	if !ok {
-		sendErrorResponse(c, http.StatusUnauthorized, "email claim is not a string")
-		return
-	}
-
-	u, err := h.service.UserInfo(email)
-	if err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	c.JSON(http.StatusOK, u)
-}
 
 func (h *Handler) CreateUserInvite(c *gin.Context) {
 	r := &domain.CreateUserInvite{}
@@ -60,11 +27,90 @@ func (h *Handler) CreateUserInvite(c *gin.Context) {
 }
 
 func (h *Handler) ListUsers(c *gin.Context) {
-	err := h.service.GetUsersList(c)
+	// Получаем query-параметры
+	role := c.Query("role")
+	status := c.Query("status")
+
+	// Пагинация с дефолтами
+	limitStr := c.DefaultQuery("limit", "20")
+	offsetStr := c.DefaultQuery("offset", "0")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		sendErrorResponse(c, http.StatusBadRequest, "invalid limit")
+		return
+	}
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil || offset < 0 {
+		sendErrorResponse(c, http.StatusBadRequest, "invalid offset")
+		return
+	}
+
+	users, err := h.service.GetUsersList(c, role, status, limit, offset)
 	if err != nil {
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.Status(http.StatusOK)
+	var response []*domain.UserResponse
+	for _, u := range users {
+		response = append(response, &domain.UserResponse{
+			ID:       u.Id,
+			Username: u.Username,
+			Email:    u.Email,
+			Role:     u.Role,
+			Status:   u.Status,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data":    response,
+		"meta": gin.H{
+			"limit":  limit,
+			"offset": offset,
+			"count":  len(response),
+		},
+	})
+}
+
+func (h *Handler) UpdateUser(c *gin.Context) {
+	idParam := c.Param("id")
+	userID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		sendErrorResponse(c, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+
+	r := &domain.UpdateUserInput{}
+	if err := c.ShouldBindJSON(&r); err != nil {
+		sendErrorResponse(c, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	err = h.service.UpdateUser(userID, r)
+	if err != nil {
+		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user updated"})
+}
+
+func (h *Handler) DeleteUser(c *gin.Context) {
+	idParam := c.Param("id")
+	userID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		sendErrorResponse(c, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+
+	err = h.service.DeleteUser(userID)
+	if err != nil {
+		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
 }

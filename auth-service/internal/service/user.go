@@ -46,3 +46,43 @@ func (s *Service) CreateUserInvite(c *gin.Context, r *domain.CreateUserInvite) e
 	}
 	return nil
 }
+
+func (s *Service) GetUsersList(c *gin.Context, role, status string, limit, offset int) ([]*domain.User, error) {
+	return s.repo.GetUsersFiltered(role, status, limit, offset)
+}
+
+func (s *Service) UpdateUser(userID int64, input *domain.UpdateUserInput) error {
+
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return err
+	}
+
+	if input.Username != "" {
+		user.Username = input.Username
+	}
+	if input.Role != "" {
+		user.Role = input.Role
+	}
+	if input.Status != "" {
+		user.Status = input.Status
+	}
+
+	err = s.repo.UpdateUserByID(user)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) DeleteUser(userID int64) error {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return err
+	}
+
+	user.Status = "suspended"
+	return s.repo.UpdateUserByID(user)
+}
+

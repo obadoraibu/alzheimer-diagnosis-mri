@@ -6,3 +6,9 @@ user-db:
 token-db:
   port: "6379"
   host: "localhost"
+minio:
+  endpoint: minio:9000
+  access_key: minioadmin
+  secret_key: minioadmin
+  bucket: mri-scans
+  use_ssl: false

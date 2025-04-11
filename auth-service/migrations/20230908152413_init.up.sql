@@ -18,3 +18,18 @@ VALUES (
     'active',
     NULL
 );
+
+CREATE TABLE mri_scans (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    patient_name VARCHAR(100) NOT NULL,
+    patient_gender VARCHAR(10),
+    patient_age INT,
+    scan_date DATE,
+    object_name VARCHAR(255) NOT NULL,
+    original_filename VARCHAR(255),
+    content_type VARCHAR(100),
+    size BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    status VARCHAR(50) DEFAULT 'queued'
+);

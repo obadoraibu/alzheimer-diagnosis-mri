@@ -1,6 +1,10 @@
 package service
 
 import (
+	"context"
+	"mime/multipart"
+	"time"
+
 	"github.com/obadoraibu/go-auth/internal/domain"
 )
 
@@ -20,10 +24,28 @@ type Repository interface {
 	Close() error
 	CreateUserInvite(u *domain.User) (*domain.User, error)
 	CompleteInvite(code, passwordHash string) error
+	GetUsersFiltered(role, status string, limit, offset int) ([]*domain.User, error)
+
+	GetUserByID(userID int64) (*domain.User, error)
+	UpdateUserByID(user *domain.User) error
+
+	UploadScanToMinIO(ctx context.Context, objectName string, file multipart.File, size int64, contentType string) error
+	SaveScanMetadata(
+		userID int64,
+		objectName string,
+		originalFilename string,
+		contentType string,
+		size int64,
+		patientName string,
+		patientGender string,
+		patientAge int,
+		scanDate time.Time,
+	) error
+	EnqueueScanTask(userID int64, objectName string) error
 }
 
 type TokenManager interface {
-	GenerateJWT(email, role string) (string, error)
+	GenerateJWT(user_id int64, role string) (string, error)
 	GenerateRefresh() string
 }
 

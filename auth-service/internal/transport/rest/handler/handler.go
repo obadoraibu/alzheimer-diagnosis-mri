@@ -14,6 +14,12 @@ type Service interface {
 	UserInfo(email string) (*domain.User, error)
 	CompleteInvite(code string, password string) error
 	CreateUserInvite(c *gin.Context, r *domain.CreateUserInvite) error
+	GetUsersList(c *gin.Context, role, status string, limit, offset int) ([]*domain.User, error)
+
+	UpdateUser(userID int64, input *domain.UpdateUserInput) error
+	DeleteUser(userID int64) error
+
+	CreateMRIAnalysis(c *gin.Context, input *domain.CreateAnalysisInput) error
 }
 
 type Handler struct {
@@ -57,12 +63,12 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		adminGroup.Use(h.AdminMiddleware())
 		{
 			adminGroup.POST("/users", h.CreateUserInvite) // Пригласить нового пользователя (по умолчанию DOCTOR)
-			adminGroup.GET("/users", h.ListUsers)               
+			adminGroup.GET("/users", h.ListUsers)
 			//adminGroup.GET("/users/:id", h.GetUserByID)         // Детальная инфа
-			//adminGroup.PUT("/users/:id", h.UpdateUser)          // Изменить (роль, статус, ФИО и т.д.)
-			//adminGroup.DELETE("/users/:id", h.DeleteUser)       // Удалить/заблокировать и т.п.
+			adminGroup.PUT("/users/:id", h.UpdateUser)    // Изменить (роль, статус, ФИО и т.д.)
+			adminGroup.DELETE("/users/:id", h.DeleteUser) // Удалить/заблокировать и т.п.
 		}
-
+		auth.POST("/upload", h.CreateMRIAnalysis)
 	}
 
 	//router.POST("/complete-invite", h.CompleteInvite)
@@ -71,7 +77,6 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 	router.POST("/complete-invite/:code", h.CompleteInvite)
 
-	router.GET("/resource", h.AuthMiddleware(), h.UserInfo)
 	router.POST("/sign-in", h.SignIn)
 	router.POST("/refresh", h.Refresh)
 	router.POST("/revoke", h.Revoke)

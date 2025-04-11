@@ -20,7 +20,7 @@ func (s *Service) SignIn(c *gin.Context, req *domain.UserSignInInput) (*domain.U
 		return nil, domain.ErrWrongEmailOrPassword
 	}
 
-	accessToken, err := s.tokenManager.GenerateJWT(req.Email, u.Role)
+	accessToken, err := s.tokenManager.GenerateJWT(u.Id, u.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (s *Service) Refresh(refresh, fingerprint string) (*domain.UserRefreshRespo
 		return nil, err
 	}
 
-	access, err := s.tokenManager.GenerateJWT(email, u.Role)
+	access, err := s.tokenManager.GenerateJWT(u.Id, u.Role)
 	if err != nil {
 		return nil, err
 	}

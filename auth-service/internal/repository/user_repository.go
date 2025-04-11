@@ -165,3 +165,108 @@ func (r *Repository) CompleteInvite(code string, passwordHash string) error {
 
 	return tx.Commit()
 }
+
+func (r *Repository) GetUsersFiltered(role, status string, limit, offset int) ([]*domain.User, error) {
+	query := `
+		SELECT id, username, email, role, status 
+		FROM users
+		WHERE ($1 = '' OR role = $1)
+		  AND ($2 = '' OR status = $2)
+		ORDER BY id
+		LIMIT $3 OFFSET $4;
+	`
+
+	rows, err := r.Users.db.Query(query, role, status, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		var u domain.User
+		err := rows.Scan(&u.Id, &u.Username, &u.Email, &u.Role, &u.Status)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, &u)
+	}
+
+	return users, nil
+}
+
+func (r *Repository) GetUserByID(userID int64) (*domain.User, error) {
+	query := `
+		SELECT id, username, email, role, status 
+		FROM users 
+		WHERE id = $1
+	`
+
+	row := r.Users.db.QueryRow(query, userID)
+
+	var user domain.User
+	err := row.Scan(&user.Id, &user.Username, &user.Email, &user.Role, &user.Status)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *Repository) UpdateUserByID(user *domain.User) error {
+	query := `
+		UPDATE users
+		SET username = $1,
+		    role = $2,
+		    status = $3
+		WHERE id = $4
+	`
+
+	_, err := r.Users.db.Exec(query,
+		user.Username,
+		user.Role,
+		user.Status,
+		user.Id,
+	)
+
+	return err
+}
+
+func (r *Repository) SaveScanMetadata(
+	userID int64,
+	objectName string,
+	originalFilename string,
+	contentType string,
+	size int64,
+	patientName string,
+	patientGender string,
+	patientAge int,
+	scanDate time.Time,
+) error {
+	query := `
+		INSERT INTO mri_scans (
+			user_id, object_name, original_filename, content_type, size,
+			patient_name, patient_gender, patient_age, scan_date
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+
+	_, err := r.Users.db.Exec(query,
+		userID,
+		objectName,
+		originalFilename,
+		contentType,
+		size,
+		patientName,
+		patientGender,
+		patientAge,
+		scanDate,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert scan metadata: %w", err)
+	}
+
+	return nil
+}

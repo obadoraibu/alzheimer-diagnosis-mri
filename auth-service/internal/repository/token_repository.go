@@ -106,3 +106,31 @@ func (r *Repository) FindAndDeleteRefreshToken(refresh, fingerprint string) (str
 }
 
 func (r *Repository) DeleteToken(u *domain.User) error { return nil }
+
+func (r *Repository) EnqueueScanTask(userID int64, objectName string) error {
+	ctx := context.Background()
+
+	task := struct {
+		UserID     int64  `json:"user_id"`
+		ObjectName string `json:"object_name"`
+		CreatedAt  int64  `json:"created_at"`
+	}{
+		UserID:     userID,
+		ObjectName: objectName,
+		CreatedAt:  time.Now().Unix(),
+	}
+
+	data, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("failed to marshal task: %w", err)
+	}
+
+	queueName := "mri_tasks"
+	err = r.Tokens.client.RPush(ctx, queueName, data).Err()
+	if err != nil {
+		return fmt.Errorf("failed to enqueue task: %w", err)
+	}
+
+	logrus.Infof("Task enqueued for user %d: %s", userID, objectName)
+	return nil
+}
