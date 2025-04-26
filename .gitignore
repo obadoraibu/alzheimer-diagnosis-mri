@@ -1,0 +1,18 @@
+# dependencies
+client_app/my-app/node_modules/
+alzheimer-diagnosis-mri/client-app/node_modules
+# production
+# Node.js
+node_modules/
+dist/
+build/
+
+# VSCode
+.vscode/
+
+# MacOS
+.DS_Store
+
+# React специфичное
+.next/
+.cache/
