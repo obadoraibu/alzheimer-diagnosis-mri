@@ -1,0 +1,15 @@
+python-dotenv
+minio
+psycopg2-binary
+redis
+pillow
+monai>=1.3.0
+torch>=2.0.0
+torchvision
+nibabel
+pillow
+matplotlib
+numpy
+scikit-learn
+tqdm
+opencv-python

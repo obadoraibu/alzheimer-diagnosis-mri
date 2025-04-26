@@ -7,19 +7,24 @@ import (
 )
 
 type Service interface {
-	SignIn(c *gin.Context, r *domain.UserSignInInput) (*domain.UserSignInResponse, error)
+	SignIn(r *domain.UserSignInInput) (*domain.UserSignInResponse, error)
 	//SignUp(c *gin.Context, r *domain.UserSignUpInput) error
 	Refresh(refresh, fingerprint string) (*domain.UserRefreshResponse, error)
 	Revoke(refresh, fingerprint string) error
 	UserInfo(email string) (*domain.User, error)
 	CompleteInvite(code string, password string) error
-	CreateUserInvite(c *gin.Context, r *domain.CreateUserInvite) error
-	GetUsersList(c *gin.Context, role, status string, limit, offset int) ([]*domain.User, error)
+	CreateUserInvite(r *domain.CreateUserInvite) error
+	GetUsersList(role, status string, limit, offset int) ([]*domain.User, error)
 
 	UpdateUser(userID int64, input *domain.UpdateUserInput) error
 	DeleteUser(userID int64) error
 
-	CreateMRIAnalysis(c *gin.Context, input *domain.CreateAnalysisInput) error
+	CreateMRIAnalysis(ctx *gin.Context, input *domain.CreateAnalysisInput) error
+
+	GetScansByFilters(userID int64, filter *domain.ScanFilter) ([]*domain.MRIScan, error)
+	GetScanByID(userID, scanID int64) (*domain.MRIScanDetail, error)
+
+	GetUserProfile(userID int64) (*domain.UserProfile, error)
 }
 
 type Handler struct {
@@ -69,18 +74,18 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			adminGroup.DELETE("/users/:id", h.DeleteUser) // Удалить/заблокировать и т.п.
 		}
 		auth.POST("/upload", h.CreateMRIAnalysis)
+		auth.GET("/scans", h.ListScans)
+		auth.GET("/scans/:id", h.GetScanDetail)
+		auth.GET("/profile", h.GetProfileInfo)
 	}
 
-	//router.POST("/complete-invite", h.CompleteInvite)
-
 	// router.POST("/sign-up", h.SignUp)
+	// router.GET("/email-confirm/:code", h.ConfirmEmail)
 
 	router.POST("/complete-invite/:code", h.CompleteInvite)
-
 	router.POST("/sign-in", h.SignIn)
 	router.POST("/refresh", h.Refresh)
 	router.POST("/revoke", h.Revoke)
-	//router.GET("/email-confirm/:code", h.ConfirmEmail)
 
 	return router
 }

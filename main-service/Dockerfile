@@ -20,4 +20,4 @@ RUN wget -q https://github.com/golang-migrate/migrate/releases/download/v4.14.1/
 EXPOSE 8080
 
 # CMD для применения миграции и запуска API
-CMD ["sh", "-c", "migrate -path migrations -database postgres://$USER_DB_USER:$USER_DB_PASSWORD@$USER_DB_HOST:$USER_DB_PORT/$USER_DB_NAME?sslmode=disable up && ./api"]
+CMD ["sh", "-c", "migrate -path migrations -database postgres://$POSTGRES_DB_USER:$POSTGRES_DB_PASSWORD@$POSTGRES_DB_HOST:$POSTGRES_DB_PORT/$POSTGRES_DB_NAME?sslmode=disable up && ./api"]

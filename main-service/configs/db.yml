@@ -1,9 +1,9 @@
-user-db:
+postgres-db:
   port: "5432"
   host: "localhost"
   name: "postgres"
   user: "user"
-token-db:
+redis-db:
   port: "6379"
   host: "localhost"
 minio:

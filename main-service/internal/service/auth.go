@@ -1,13 +1,15 @@
 package service
 
 import (
-	"github.com/gin-gonic/gin"
+	"encoding/json"
+	"strconv"
+
 	"github.com/obadoraibu/go-auth/internal/domain"
 	"github.com/obadoraibu/go-auth/pkg/hash"
 )
 
 // new
-func (s *Service) SignIn(c *gin.Context, req *domain.UserSignInInput) (*domain.UserSignInResponse, error) {
+func (s *Service) SignIn(req *domain.UserSignInInput) (*domain.UserSignInResponse, error) {
 	u, err := s.repo.FindUserByEmail(req.Email)
 	if err != nil {
 		return nil, err
@@ -27,7 +29,7 @@ func (s *Service) SignIn(c *gin.Context, req *domain.UserSignInInput) (*domain.U
 
 	refreshToken := s.tokenManager.GenerateRefresh()
 
-	if err := s.repo.AddToken(req.Fingerprint, refreshToken, req.Email, u.Role); err != nil {
+	if err := s.repo.AddToken(req.Fingerprint, refreshToken, u.Id, u.Role); err != nil {
 		return nil, err
 	}
 
@@ -75,12 +77,27 @@ func (s *Service) SignIn(c *gin.Context, req *domain.UserSignInInput) (*domain.U
 
 // new
 func (s *Service) Refresh(refresh, fingerprint string) (*domain.UserRefreshResponse, error) {
-	email, err := s.repo.FindAndDeleteRefreshToken(refresh, fingerprint)
+	raw, err := s.repo.FindAndDeleteRefreshToken(refresh, fingerprint)
 	if err != nil {
 		return nil, err
 	}
 
-	u, err := s.repo.FindUserByEmail(email)
+	type TokenData struct {
+		Id   string `json:"user_id"`
+		Role string `json:"role"`
+	}
+
+	var tokenData TokenData
+	if err := json.Unmarshal([]byte(raw), &tokenData); err != nil {
+		return nil, err
+	}
+
+	userID, err := strconv.ParseInt(tokenData.Id, 10, 64)
+	if err != nil {
+		return nil, err 
+	}
+
+	u, err := s.repo.GetUserByID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +109,7 @@ func (s *Service) Refresh(refresh, fingerprint string) (*domain.UserRefreshRespo
 
 	newRefresh := s.tokenManager.GenerateRefresh()
 
-	if err := s.repo.AddToken(fingerprint, newRefresh, email, u.Role); err != nil {
+	if err := s.repo.AddToken(fingerprint, newRefresh, u.Id, u.Role); err != nil {
 		return nil, err
 	}
 

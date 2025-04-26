@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/obadoraibu/go-auth/internal/domain"
 )
-
-
 
 func (h *Handler) CreateUserInvite(c *gin.Context) {
 	r := &domain.CreateUserInvite{}
@@ -17,7 +16,7 @@ func (h *Handler) CreateUserInvite(c *gin.Context) {
 		return
 	}
 
-	err := h.service.CreateUserInvite(c, r)
+	err := h.service.CreateUserInvite(r)
 	if err != nil {
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -47,7 +46,7 @@ func (h *Handler) ListUsers(c *gin.Context) {
 		return
 	}
 
-	users, err := h.service.GetUsersList(c, role, status, limit, offset)
+	users, err := h.service.GetUsersList(role, status, limit, offset)
 	if err != nil {
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -113,4 +112,18 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
+}
+
+func (h *Handler) GetProfileInfo(c *gin.Context) {
+	token := c.MustGet("AccessToken").(*jwt.Token)
+	claims := token.Claims.(jwt.MapClaims)
+	userID := int64(claims["user_id"].(float64))
+
+	profile, err := h.service.GetUserProfile(userID)
+	if err != nil {
+		sendErrorResponse(c, http.StatusInternalServerError, "failed to get user profile")
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
 }

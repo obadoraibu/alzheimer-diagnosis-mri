@@ -6,6 +6,7 @@ alzheimer-diagnosis-mri/client-app/node_modules
 node_modules/
 dist/
 build/
+ml-service/debug_slices
 
 # VSCode
 .vscode/

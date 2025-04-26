@@ -37,7 +37,7 @@ func (h *Handler) SignIn(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.SignIn(c, r)
+	resp, err := h.service.SignIn(r)
 	if err != nil {
 		if err == domain.ErrWrongEmailOrPassword {
 			sendErrorResponse(c, http.StatusConflict, err.Error())
@@ -83,7 +83,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	response, err := h.service.Refresh(cookie, req.Fingerprint)
 	if err != nil {
-		c.Status(http.StatusUnauthorized)
+		sendErrorResponse(c, http.StatusUnauthorized, err.Error())
 		return
 	}
 	logrus.Println(cookie)

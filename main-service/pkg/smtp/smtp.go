@@ -25,7 +25,7 @@ func (s *EmailSender) SendInvEmail(to, code string) error {
 
 	m.SetBody("text/html", fmt.Sprintf(
 		"Вас пригласили в веб-приложение для анализа МРТ-снимков:<br/><br/>"+
-			"<a href='http://localhost:8080/email-confirm/%s'>Регистрация</a>",
+			"<a href='http://localhost:3000/complete-invite/%s'>Регистрация</a>",
 		code,
 	))
 

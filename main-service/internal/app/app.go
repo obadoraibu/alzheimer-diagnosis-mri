@@ -22,15 +22,15 @@ func Run(mainConfigPath, dbConfigPath string) error {
 		logrus.Error("cannot create new config")
 		return err
 	}
-	logrus.Println(cfg.DatabaseConfig.TokenRepositoryConfig.Host)
-	logrus.Println(cfg.DatabaseConfig.TokenRepositoryConfig.Port)
-	logrus.Println(cfg.DatabaseConfig.TokenRepositoryConfig.Password)
+	logrus.Println(cfg.DatabaseConfig.RedisRepositoryConfig.Host)
+	logrus.Println(cfg.DatabaseConfig.RedisRepositoryConfig.Port)
+	logrus.Println(cfg.DatabaseConfig.RedisRepositoryConfig.Password)
 
-	logrus.Println(cfg.DatabaseConfig.UserRepositoryConfig.Host)
-	logrus.Println(cfg.DatabaseConfig.UserRepositoryConfig.Port)
-	logrus.Println(cfg.DatabaseConfig.UserRepositoryConfig.Password)
-	logrus.Println(cfg.DatabaseConfig.UserRepositoryConfig.User)
-	logrus.Println(cfg.DatabaseConfig.UserRepositoryConfig.Name)
+	logrus.Println(cfg.DatabaseConfig.PostgresRepositoryConfig.Host)
+	logrus.Println(cfg.DatabaseConfig.PostgresRepositoryConfig.Port)
+	logrus.Println(cfg.DatabaseConfig.PostgresRepositoryConfig.Password)
+	logrus.Println(cfg.DatabaseConfig.PostgresRepositoryConfig.User)
+	logrus.Println(cfg.DatabaseConfig.PostgresRepositoryConfig.Name)
 
 	logrus.Println(cfg.HttpConfig.Port)
 	logrus.Println(cfg.AuthConfig.SigningKey)
@@ -40,7 +40,8 @@ func Run(mainConfigPath, dbConfigPath string) error {
 	logrus.Println(cfg.SmtpConfig.Password)
 	logrus.Println(os.Getenv("SMTP_PASSWORD"))
 
-	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.Endpoint)
+	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.InternalEndpoint)
+	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.PublicEndpoint)
 	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.AccessKey)
 	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.SecretKey)
 	logrus.Println(cfg.DatabaseConfig.MinIORepositoryConfig.Bucket)

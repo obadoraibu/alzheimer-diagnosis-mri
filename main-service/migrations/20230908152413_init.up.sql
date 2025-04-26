@@ -33,3 +33,15 @@ CREATE TABLE mri_scans (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     status VARCHAR(50) DEFAULT 'queued'
 );
+
+CREATE TABLE mri_analysis_results (
+    id SERIAL PRIMARY KEY,
+    scan_id INTEGER NOT NULL REFERENCES mri_scans(id) ON DELETE CASCADE,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, processing, done, failed
+    diagnosis INTEGER CHECK (diagnosis IN (0, 1, 2)), -- 0: Healthy, 1: Mild Cognitive Impairment, 2: Alzheimer's
+    confidence REAL CHECK (confidence >= 0 AND confidence <= 1),
+    gradcam_url TEXT,
+    error_message TEXT
+);

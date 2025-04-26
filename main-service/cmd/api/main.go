@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
-	"github.com/obadoraibu/go-auth/internal/app"
 	"log"
+
+	"github.com/obadoraibu/go-auth/internal/app"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -18,7 +20,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-
+	logrus.Println("main.go run")
 	if err := app.Run(mainConfigPath, dbConfigPath); err != nil {
 		log.Fatal("cannot run the app")
 	}

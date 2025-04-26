@@ -13,9 +13,9 @@ type Config struct {
 }
 
 type DatabaseConfig struct {
-	UserRepositoryConfig  *UserRepositoryConfig  `yaml:"user-db"`
-	TokenRepositoryConfig *TokenRepositoryConfig `yaml:"token-db"`
-	MinIORepositoryConfig *MinIOConfig           `yaml:"minio"`
+	PostgresRepositoryConfig *PostgresRepositoryConfig `yaml:"postgres-db"`
+	RedisRepositoryConfig    *RedisRepositoryConfig    `yaml:"redis-db"`
+	MinIORepositoryConfig    *MinIOConfig              `yaml:"minio"`
 }
 
 type HttpConfig struct {
@@ -35,26 +35,27 @@ type SmtpConfig struct {
 	Password string `yaml:"password" env:"SMTP_PASSWORD" env-default:"SuUh72xWTR6J3zu3zgi9"`
 }
 
-type UserRepositoryConfig struct {
-	Port     string `yaml:"port" env:"USER_DB_PORT" env-default:"5432"`
-	Host     string `yaml:"host" env:"USER_DB_HOST" env-default:"localhost"`
-	Name     string `yaml:"name" env:"USER_DB_NAME" env-default:"postgres"`
-	User     string `yaml:"user" env:"USER_DB_USER" env-default:"user"`
-	Password string `env:"USER_DB_PASSWORD"`
+type PostgresRepositoryConfig struct {
+	Port     string `yaml:"port" env:"POSTGRES_DB_PORT" env-default:"5432"`
+	Host     string `yaml:"host" env:"POSTGRES_DB_HOST" env-default:"localhost"`
+	Name     string `yaml:"name" env:"POSTGRES_DB_NAME" env-default:"postgres"`
+	User     string `yaml:"user" env:"POSTGRES_DB_USER" env-default:"user"`
+	Password string `env:"POSTGRES_DB_PASSWORD"`
 }
 
-type TokenRepositoryConfig struct {
-	Port     string `yaml:"port" env:"TOKEN_DB_PORT" env-default:"6379"`
-	Host     string `yaml:"host" env:"TOKEN_DB_HOST" env-default:"localhost"`
-	Password string `yaml:"password" env:"TOKEN_DB_PASSWORD"`
+type RedisRepositoryConfig struct {
+	Port     string `yaml:"port" env:"REDIS_DB_PORT" env-default:"6379"`
+	Host     string `yaml:"host" env:"REDIS_DB_HOST" env-default:"localhost"`
+	Password string `yaml:"password" env:"REDIS_DB_PASSWORD"`
 }
 
 type MinIOConfig struct {
-	Endpoint  string `yaml:"endpoint" env:"MINIO_ENDPOINT" env-default:"minio:9000"`
-	AccessKey string `yaml:"access_key" env:"MINIO_ACCESS_KEY" env-default:"minioadmin"`
-	SecretKey string `yaml:"secret_key" env:"MINIO_SECRET_KEY" env-default:"minioadmin"`
-	Bucket    string `yaml:"bucket" env:"MINIO_BUCKET" env-default:"mri-scans"`
-	UseSSL    bool   `yaml:"use_ssl" env:"MINIO_SSL" env-default:"false"`
+    InternalEndpoint string `yaml:"internal_endpoint" env:"MINIO_INTERNAL_ENDPOINT" env-default:"minio:9000"`
+    PublicEndpoint   string `yaml:"public_endpoint"  env:"MINIO_PUBLIC_ENDPOINT"  env-default:"localhost:9000"`
+    AccessKey        string `yaml:"access_key"       env:"MINIO_ACCESS_KEY"       env-default:"minioadmin"`
+    SecretKey        string `yaml:"secret_key"       env:"MINIO_SECRET_KEY"       env-default:"minioadmin"`
+    Bucket           string `yaml:"bucket"           env:"MINIO_BUCKET"           env-default:"mri-scans"`
+    UseSSL           bool   `yaml:"use_ssl"          env:"MINIO_SSL"              env-default:"false"`
 }
 
 func NewConfig(mainConfigPath, dbConfigPath string) (*Config, error) {
@@ -66,17 +67,17 @@ func NewConfig(mainConfigPath, dbConfigPath string) (*Config, error) {
 		return nil, err
 	}
 
-	var userCfg UserRepositoryConfig
-	var tokenCfg TokenRepositoryConfig
+	var postgresCfg PostgresRepositoryConfig
+	var redisCfg RedisRepositoryConfig
 	var minIOCfg MinIOConfig
 
-	err = cleanenv.ReadConfig(dbConfigPath, &userCfg)
+	err = cleanenv.ReadConfig(dbConfigPath, &postgresCfg)
 	if err != nil {
 		logrus.Error("cannot read the config")
 		return nil, err
 	}
 
-	err = cleanenv.ReadConfig(dbConfigPath, &tokenCfg)
+	err = cleanenv.ReadConfig(dbConfigPath, &redisCfg)
 	if err != nil {
 		logrus.Error("cannot read the config")
 		return nil, err
@@ -89,9 +90,9 @@ func NewConfig(mainConfigPath, dbConfigPath string) (*Config, error) {
 	}
 
 	cfg.DatabaseConfig = &DatabaseConfig{
-		UserRepositoryConfig:  &userCfg,
-		TokenRepositoryConfig: &tokenCfg,
-		MinIORepositoryConfig: &minIOCfg,
+		PostgresRepositoryConfig: &postgresCfg,
+		RedisRepositoryConfig:    &redisCfg,
+		MinIORepositoryConfig:    &minIOCfg,
 	}
 
 	return &cfg, nil

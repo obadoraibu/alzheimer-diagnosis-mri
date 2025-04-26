@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"mime/multipart"
+	"net/url"
 	"time"
 
 	"github.com/obadoraibu/go-auth/internal/domain"
@@ -17,8 +18,8 @@ type Service struct {
 type Repository interface {
 	//CreateUserAndEmailConfirmation(u *domain.User, confirmationCode string, expiresAt time.Time) (*domain.User, error)
 	FindUserByEmail(email string) (*domain.User, error)
-	ConfirmEmail(code string) error
-	AddToken(fingerprint, refresh, email, role string) error
+	//ConfirmEmail(code string) error
+	AddToken(fingerprint, refresh string, user_id int64, role string) error
 	DeleteToken(u *domain.User) error
 	FindAndDeleteRefreshToken(refresh, fingerprint string) (string, error)
 	Close() error
@@ -40,8 +41,12 @@ type Repository interface {
 		patientGender string,
 		patientAge int,
 		scanDate time.Time,
-	) error
+	) (int64, error)
 	EnqueueScanTask(userID int64, objectName string) error
+	GetScansByFilters(userID int64, filter *domain.ScanFilter) ([]*domain.MRIScan, error)
+	GetScanDetail(userID, scanID int64) (*domain.MRIScanDetail, error)
+
+	PresignedGetObject(objectName string) (*url.URL, error)
 }
 
 type TokenManager interface {
