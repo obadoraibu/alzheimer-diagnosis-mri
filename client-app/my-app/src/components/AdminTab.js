@@ -1,10 +1,10 @@
 /*
-   AdminTab – таблица пользователей
-   props:
-     api       – fetch-wrapper
-     onEdit    – (user) => void
-     onDelete  – (user) => void
-*/
+ * AdminTab – таблица пользователей
+ * props:
+ *   api       – fetch-wrapper
+ *   onEdit    – (user) => void
+ *   onDelete  – (user) => void
+ */
 import React, { useEffect, useState } from 'react';
 import { homeStyles as styles } from '../styles/styles';
 import { PAGE_LIMIT }            from '../constants';
@@ -17,26 +17,31 @@ const SmallBtn = ({ danger, ...rest }) => (
   />
 );
 
-function AdminTab({ api, onEdit, onDelete }) {
+function AdminTab({
+  api,
+  onEdit   = () => {},   // дефолтные заглушки
+  onDelete = () => {},
+}) {
   const [users, setUsers] = useState([]);
   const [page,  setPage]  = useState(0);
   const [more,  setMore]  = useState(false);
 
-  /* загрузка */
   useEffect(() => {
     (async () => {
       const qs = new URLSearchParams();
-      qs.append('limit', PAGE_LIMIT);
+      qs.append('limit',  PAGE_LIMIT);
       qs.append('offset', page * PAGE_LIMIT);
 
       const r = await api(`/admin/users?${qs.toString()}`);
       if (!r.ok) return;
-      const data  = await r.json();
-      const list  = Array.isArray(data) ? data : data.data || data.users || [];
-      const start = page * PAGE_LIMIT;
 
-      setUsers(list.slice(start, start + PAGE_LIMIT));
-      setMore(start + PAGE_LIMIT < list.length);
+      const raw   = await r.json();
+      const full  = Array.isArray(raw) ? raw : raw?.data ?? raw?.users ?? [];
+      const safe  = Array.isArray(full) ? full : [];
+
+      const start = page * PAGE_LIMIT;
+      setUsers(safe.slice(start, start + PAGE_LIMIT));
+      setMore(start + PAGE_LIMIT < safe.length);
     })();
   }, [api, page]);
 
@@ -64,6 +69,7 @@ function AdminTab({ api, onEdit, onDelete }) {
         </tbody>
       </table>
 
+      {/* пагинация */}
       <div style={{ display:'flex', gap:16, justifyContent:'center', marginTop:12 }}>
         <button style={{ ...styles.button, opacity:page===0?0.5:1 }} disabled={page===0}
                 onClick={()=>setPage(p=>Math.max(0,p-1))}>← Назад</button>

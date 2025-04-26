@@ -1,9 +1,9 @@
 /*
-   StudiesTab – таблица исследований + фильтры + пагинация
-   props:
-     api     – fetch-wrapper
-     onOpen  – (id) => void        — открыть модалку деталей
-*/
+ * StudiesTab – список исследований + фильтры + пагинация
+ * props:
+ *    api    – fetch-wrapper
+ *    onOpen – (id) => void
+ */
 import React, { useEffect, useState } from 'react';
 import { homeStyles as styles } from '../styles/styles';
 import { PAGE_LIMIT }            from '../constants';
@@ -21,7 +21,7 @@ function StudiesTab({ api, onOpen }) {
 
   const hasFilters = searchId || dateFrom || dateTo;
 
-  /* загрузка */
+  /* ---------------- загрузка ---------------- */
   useEffect(() => {
     (async () => {
       const qs = new URLSearchParams();
@@ -34,15 +34,17 @@ function StudiesTab({ api, onOpen }) {
       const r = await api(`/scans?${qs.toString()}`);
       if (!r.ok) { setScans([]); setHasMore(false); return; }
 
-      const data  = await r.json();
-      const list  = Array.isArray(data) ? data : data.data || [];
-      const start = page * PAGE_LIMIT;
+      const raw   = await r.json();                 // [], {data:[]}, null …
+      const full  = Array.isArray(raw) ? raw : raw?.data ?? [];
+      const safe  = Array.isArray(full) ? full : []; // гарантировано массив
 
-      setScans(list.slice(start, start + PAGE_LIMIT));
-      setHasMore(start + PAGE_LIMIT < list.length);
+      const start = page * PAGE_LIMIT;
+      setScans(safe.slice(start, start + PAGE_LIMIT));
+      setHasMore(start + PAGE_LIMIT < safe.length);
     })();
   }, [api, page, searchId, dateFrom, dateTo]);
 
+  /* ---------------- UI ---------------- */
   return (
     <>
       {/* фильтр */}
