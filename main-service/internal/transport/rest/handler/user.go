@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -10,120 +11,184 @@ import (
 )
 
 func (h *Handler) CreateUserInvite(c *gin.Context) {
-	r := &domain.CreateUserInvite{}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid request body")
+	type request struct {
+		Username string `json:"username" binding:"required"`
+		Email    string `json:"email" binding:"required,email"`
+		Role     string `json:"role" binding:"required"`
+	}
+
+	var req request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_JSON", "Invalid request body format")
 		return
 	}
 
-	err := h.service.CreateUserInvite(r)
+	input := &domain.CreateUserInviteInput{
+		Username: req.Username,
+		Email:    req.Email,
+		Role:     req.Role,
+	}
+
+	err := h.service.CreateUserInvite(input)
 	if err != nil {
-		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			status := httpStatusFromAppError(appErr)
+			sendErrorResponse(c, status, appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected server error")
+		}
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+	})
 }
 
 func (h *Handler) ListUsers(c *gin.Context) {
-	// Получаем query-параметры
-	role := c.Query("role")
-	status := c.Query("status")
-
-	// Пагинация с дефолтами
 	limitStr := c.DefaultQuery("limit", "20")
 	offsetStr := c.DefaultQuery("offset", "0")
 
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid limit")
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_LIMIT", "Limit must be a positive integer")
 		return
 	}
 
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil || offset < 0 {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid offset")
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_OFFSET", "Offset must be a non-negative integer")
 		return
 	}
 
-	users, err := h.service.GetUsersList(role, status, limit, offset)
+	input := &domain.UserListFilterInput{
+		Role:   c.Query("role"),
+		Status: c.Query("status"),
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	users, err := h.service.GetUsersList(input)
 	if err != nil {
-		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			sendErrorResponse(c, httpStatusFromAppError(appErr), appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected server error")
+		}
 		return
 	}
 
-	var response []*domain.UserResponse
-	for _, u := range users {
-		response = append(response, &domain.UserResponse{
-			ID:       u.Id,
-			Username: u.Username,
-			Email:    u.Email,
-			Role:     u.Role,
-			Status:   u.Status,
-		})
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "success",
-		"data":    response,
-		"meta": gin.H{
-			"limit":  limit,
-			"offset": offset,
-			"count":  len(response),
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+		Data:    users,
+		Meta: &Meta{
+			Limit:  limit,
+			Offset: offset,
+			Count:  len(users),
 		},
 	})
 }
 
 func (h *Handler) UpdateUser(c *gin.Context) {
+	type request struct {
+		Username string `json:"username,omitempty"`
+		Role     string `json:"role,omitempty"`
+		Status   string `json:"status,omitempty"`
+	}
+
 	idParam := c.Param("id")
 	userID, err := strconv.ParseInt(idParam, 10, 64)
 	if err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid user ID")
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_USER_ID", "User ID must be a valid integer")
 		return
 	}
 
-	r := &domain.UpdateUserInput{}
-	if err := c.ShouldBindJSON(&r); err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid JSON body")
+	var req request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_JSON", "Invalid request body")
 		return
 	}
 
-	err = h.service.UpdateUser(userID, r)
+	input := &domain.UpdateUserInput{
+		ID:       userID,
+		Username: req.Username,
+		Role:     req.Role,
+		Status:   req.Status,
+	}
+
+	err = h.service.UpdateUser(input)
 	if err != nil {
-		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			sendErrorResponse(c, httpStatusFromAppError(appErr), appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected server error")
+		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "user updated"})
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+	})
 }
 
 func (h *Handler) DeleteUser(c *gin.Context) {
 	idParam := c.Param("id")
 	userID, err := strconv.ParseInt(idParam, 10, 64)
 	if err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid user ID")
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_USER_ID", "User ID must be a valid integer")
 		return
 	}
 
-	err = h.service.DeleteUser(userID)
+	input := &domain.DeleteUserInput{
+		ID: userID,
+	}
+
+	err = h.service.DeleteUser(input)
 	if err != nil {
-		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			sendErrorResponse(c, httpStatusFromAppError(appErr), appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected server error")
+		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+	})
 }
 
 func (h *Handler) GetProfileInfo(c *gin.Context) {
 	token := c.MustGet("AccessToken").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
-	userID := int64(claims["user_id"].(float64))
 
-	profile, err := h.service.GetUserProfile(userID)
-	if err != nil {
-		sendErrorResponse(c, http.StatusInternalServerError, "failed to get user profile")
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		sendErrorResponse(c, http.StatusUnauthorized, "INVALID_TOKEN", "Invalid access token payload")
 		return
 	}
 
-	c.JSON(http.StatusOK, profile)
+	input := &domain.GetUserProfileInput{
+		UserID: int64(userID),
+	}
+
+	profile, err := h.service.GetUserProfile(input)
+	if err != nil {
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			sendErrorResponse(c, httpStatusFromAppError(appErr), appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected server error")
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+		Data:    profile,
+	})
 }

@@ -15,6 +15,14 @@ export default function ProfileTab({ user }) {
           <span style={styles.profileLabel}>Email:&nbsp;</span>
           {user.email}
         </div>
+        <div style={styles.profileField}>
+          <span style={styles.profileLabel}>Роль:&nbsp;</span>
+          {user.role}
+        </div>
+        <div style={styles.profileField}>
+          <span style={styles.profileLabel}>Статус:&nbsp;</span>
+          {user.status}
+        </div>
       </div>
     </>
   );

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -21,25 +22,25 @@ func (h *Handler) CreateMRIAnalysis(c *gin.Context) {
 	scanDateStr := c.PostForm("scan_date")
 
 	if patientName == "" || patientGender == "" || patientAgeStr == "" || scanDateStr == "" {
-		sendErrorResponse(c, http.StatusBadRequest, "missing form fields")
+		sendErrorResponse(c, http.StatusBadRequest, "MISSING_FIELDS", "Required form fields are missing")
 		return
 	}
 
 	patientAge, err := strconv.Atoi(patientAgeStr)
 	if err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid patient_age")
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_AGE", "Patient age must be a valid number")
 		return
 	}
 
 	scanDate, err := time.Parse("2006-01-02", scanDateStr)
 	if err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid scan_date, expected YYYY-MM-DD")
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_SCAN_DATE", "Scan date must be in YYYY-MM-DD format")
 		return
 	}
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "failed to read file")
+		sendErrorResponse(c, http.StatusBadRequest, "FILE_REQUIRED", "Scan file is required")
 		return
 	}
 	defer file.Close()
@@ -56,11 +57,18 @@ func (h *Handler) CreateMRIAnalysis(c *gin.Context) {
 
 	err = h.service.CreateMRIAnalysis(c, input)
 	if err != nil {
-		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			sendErrorResponse(c, httpStatusFromAppError(appErr), appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to create analysis")
+		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "analysis created and scan uploaded"})
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+	})
 }
 
 func (h *Handler) ListScans(c *gin.Context) {
@@ -74,7 +82,7 @@ func (h *Handler) ListScans(c *gin.Context) {
 		if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
 			f.ScanID = &id
 		} else {
-			sendErrorResponse(c, http.StatusBadRequest, "invalid scan id")
+			sendErrorResponse(c, http.StatusBadRequest, "INVALID_SCAN_ID", "Scan ID must be a valid integer")
 			return
 		}
 	}
@@ -83,7 +91,7 @@ func (h *Handler) ListScans(c *gin.Context) {
 		if from, err := time.Parse("2006-01-02", fromStr); err == nil {
 			f.UploadedFrom = &from
 		} else {
-			sendErrorResponse(c, http.StatusBadRequest, "invalid uploaded_from date")
+			sendErrorResponse(c, http.StatusBadRequest, "INVALID_DATE_FROM", "Invalid uploaded_from date format")
 			return
 		}
 	}
@@ -92,18 +100,26 @@ func (h *Handler) ListScans(c *gin.Context) {
 		if to, err := time.Parse("2006-01-02", toStr); err == nil {
 			f.UploadedTo = &to
 		} else {
-			sendErrorResponse(c, http.StatusBadRequest, "invalid uploaded_to date")
+			sendErrorResponse(c, http.StatusBadRequest, "INVALID_DATE_TO", "Invalid uploaded_to date format")
 			return
 		}
 	}
 
 	scans, err := h.service.GetScansByFilters(userID, f)
 	if err != nil {
-		sendErrorResponse(c, http.StatusInternalServerError, "failed to retrieve scans")
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			sendErrorResponse(c, httpStatusFromAppError(appErr), appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve scans")
+		}
 		return
 	}
 
-	c.JSON(http.StatusOK, scans)
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+		Data:    scans,
+	})
 }
 
 func (h *Handler) GetScanDetail(c *gin.Context) {
@@ -114,15 +130,23 @@ func (h *Handler) GetScanDetail(c *gin.Context) {
 	scanIDParam := c.Param("id")
 	scanID, err := strconv.ParseInt(scanIDParam, 10, 64)
 	if err != nil {
-		sendErrorResponse(c, http.StatusBadRequest, "invalid scan id")
+		sendErrorResponse(c, http.StatusBadRequest, "INVALID_SCAN_ID", "Scan ID must be a valid integer")
 		return
 	}
 
 	scan, err := h.service.GetScanByID(userID, scanID)
 	if err != nil {
-		sendErrorResponse(c, http.StatusNotFound, "scan not found or access denied")
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			sendErrorResponse(c, httpStatusFromAppError(appErr), appErr.Code, appErr.Message)
+		} else {
+			sendErrorResponse(c, http.StatusNotFound, "SCAN_NOT_FOUND", "Scan not found or access denied")
+		}
 		return
 	}
 
-	c.JSON(http.StatusOK, scan)
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+		Data:    scan,
+	})
 }

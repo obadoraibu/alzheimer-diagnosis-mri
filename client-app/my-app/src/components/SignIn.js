@@ -1,56 +1,89 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInStyles as styles } from '../styles/styles';
+import { formStyles as styles } from '../styles/styles';
 
+/**
+ * SignIn
+ *  ─ если сервер вернёт 401 + code:"WRONG_CREDENTIALS",
+ *    показываем красным: «Неверный email или пароль».
+ *  ─ все прочие ошибки — единое нейтральное сообщение.
+ */
 function SignIn() {
-  const [email, setEmail] = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const navigate = useNavigate();
+  const [message,  setMessage]  = useState('');
+  const [isError,  setIsError]  = useState(false);
+  const navigate               = useNavigate();
 
- 
-  const generateFingerprint = () => {
-    return navigator.userAgent + Math.random().toString(36).substring(2);
-  };
+  /* простой «fingerprint» */
+  const fp = () => navigator.userAgent + Math.random().toString(36).substring(2);
 
-  const handleSignIn = async (e) => {
+  const handleSignIn = async e => {
     e.preventDefault();
-
-    const fingerprint = generateFingerprint();
+    setMessage('');
 
     try {
-      const response = await fetch('http://localhost:8080/sign-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fingerprint }),
+      const res  = await fetch('http://localhost:8080/sign-in', {
+        method :'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body   : JSON.stringify({ email, password, fingerprint: fp() }),
       });
+      console.log(res.code)
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.access && data.refresh) {
-          localStorage.setItem('accessToken', data.access);
-          localStorage.setItem('refreshToken', data.refresh);
+      /* ---- 200 OK ---- */
+      if (res.ok) {
+        const j   = await res.json();
+        const tok = j?.data?.accessToken;
+        if (j.success && tok) {
+          localStorage.setItem('accessToken', tok);
           navigate('/home');
-        } else {
-          setMessage('Invalid response from server.');
+          return;
         }
-      } else {
-        const errorData = await response.json();
-        setMessage('Error: ' + (errorData.message || 'Something went wrong'));
+        setIsError(true);
+        setMessage('Некорректный ответ сервера.');
+        return;
       }
+
+      /* ---- 401 WRONG_CREDENTIALS ---- */
+      if (res.status === 401 || res.status === 403) {
+        const err = await res.json().catch(() => ({}));
+        const code = err.error?.code;
+
+        if (code === 'WRONG_CREDENTIALS') {
+          setIsError(true);
+          setMessage('Неверный email или пароль');
+          return;
+        }
+
+        if (code === 'USER_SUSPENDED') {
+          setIsError(true);
+          setMessage('Ваш аккаунт заблокирован. Обратитесь в администрацию.');
+          return;
+        }
+
+        setIsError(true);
+        setMessage('Ошибка авторизации');
+        return;
+      }
+
+
+
+      /* ---- другие статусы ---- */
+      setIsError(true);
+      setMessage('Внутренняя ошибка. Попробуйте позже.');
+
     } catch (err) {
-      setMessage('Network error: ' + err.message);
+      setIsError(true);
+      setMessage('Сетевая ошибка');
     }
   };
 
-
-  
-
-
+  /* ---- render ---- */
   return (
     <div style={styles.container}>
-      <div style={styles.loginBox}>
+      <div style={styles.formBox}>
         <h2 style={styles.heading}>Авторизация</h2>
+
         <form onSubmit={handleSignIn}>
           <div style={styles.formGroup}>
             <label style={styles.label}>E-mail</label>
@@ -58,7 +91,7 @@ function SignIn() {
               style={styles.input}
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               required
             />
           </div>
@@ -69,7 +102,7 @@ function SignIn() {
               style={styles.input}
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               required
             />
           </div>
@@ -78,10 +111,16 @@ function SignIn() {
             Войти
           </button>
         </form>
-        {message && <p style={styles.message}>{message}</p>}
-        <p style={styles.registerText}>
+
+        {message && (
+          <p style={{ ...styles.message, color: isError ? 'crimson' : styles.message.color }}>
+            {message}
+          </p>
+        )}
+
+        <p style={styles.linkText}>
           Забыли пароль?{' '}
-          <Link to="/sign-up" style={styles.registerLink}>
+          <Link to="/reset" style={styles.link}>
             Восстановить
           </Link>
         </p>

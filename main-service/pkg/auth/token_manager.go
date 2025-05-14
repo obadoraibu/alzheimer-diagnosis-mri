@@ -53,3 +53,7 @@ func (tm *TokenManager) GenerateRefresh() string {
 func (tm *TokenManager) GetSigningKey() string {
 	return tm.signingKey
 }
+
+func (tm *TokenManager) GenerateResetToken() string {
+	return uuid.NewString()
+}

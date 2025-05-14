@@ -3,7 +3,7 @@ http:
 
 auth:
   signing-key: "+lhG9EBipjTp4ASqWOYEHw=="
-  accessTokenTTL: 15m
+  accessTokenTTL: 20m
   refreshTokenTTL: 1440h #60 days
 
 smtp:

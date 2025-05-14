@@ -36,3 +36,23 @@ func (s *EmailSender) SendInvEmail(to, code string) error {
 	}
 	return nil
 }
+
+func (s *EmailSender) SendPasswordResetEmail(to, code string) error {
+	m := gomail.NewMessage()
+	m.SetHeader("From", s.config.From)
+	m.SetHeader("To", to)
+	m.SetHeader("Subject", "Confirmation Email")
+
+	m.SetBody("text/html", fmt.Sprintf(
+		"Сброс пароля:<br/><br/>"+
+			"<a href='http://localhost:3000/complete-reset/%s'>Сброс</a>",
+		code,
+	))
+
+	dialer := gomail.NewDialer(s.config.Host, s.config.Port, s.config.From, s.config.Password)
+
+	if err := dialer.DialAndSend(m); err != nil {
+		return err
+	}
+	return nil
+}

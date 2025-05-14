@@ -51,19 +51,13 @@ func (r *RedisRepository) Close() error {
 	return nil
 }
 
-// new
 func (r *Repository) AddToken(fingerprint, refresh string, user_id int64, role string) error {
-	type TokenData struct {
-		Id   string `json:"user_id"`
-		Role string `json:"role"`
-	}
-
 	ctx := context.Background()
 	ttl := time.Hour * 24 * 60
 
-	key := fmt.Sprintf("%s:%s", fingerprint, refresh)
+	key := fmt.Sprintf("refresh:%s:%s", fingerprint, refresh)
 
-	data := TokenData{
+	data := domain.TokenData{
 		Id:   fmt.Sprintf("%d", user_id),
 		Role: role,
 	}
@@ -82,27 +76,22 @@ func (r *Repository) AddToken(fingerprint, refresh string, user_id int64, role s
 }
 
 func (r *Repository) FindAndDeleteRefreshToken(refresh, fingerprint string) (string, error) {
-	key := fmt.Sprintf("%s:%s", fingerprint, refresh)
+	ctx := context.Background()
+	key := fmt.Sprintf("refresh:%s:%s", fingerprint, refresh)
 
-	exists, err := r.Redis.client.Exists(context.Background(), key).Result()
+	value, err := r.Redis.client.Get(ctx, key).Result()
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", domain.ErrTokenNotFound
+		}
 		return "", err
 	}
 
-	if exists == 0 {
-		err := errors.New("key does not exist")
-		return "", err
-	} else {
-		value, err := r.Redis.client.Get(context.Background(), key).Result()
-		if err != nil {
-			return "", err
-		}
-		err = r.Redis.client.Del(context.Background(), key).Err()
-		if err != nil {
-			panic(err)
-		}
-		return value, nil
+	if err := r.Redis.client.Del(ctx, key).Err(); err != nil {
+		return "", domain.ErrInternal(err)
 	}
+
+	return value, nil
 }
 
 func (r *Repository) DeleteToken(u *domain.User) error { return nil }

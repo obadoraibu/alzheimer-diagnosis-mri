@@ -1,15 +1,9 @@
-/*
- * StudiesTab – список исследований + фильтры + пагинация
- * props:
- *    api    – fetch-wrapper
- *    onOpen – (id) => void
- */
 import React, { useEffect, useState } from 'react';
 import { homeStyles as styles } from '../styles/styles';
 import { PAGE_LIMIT }            from '../constants';
 import { getStatusColor }        from '../utils/statusColor';
 
-function StudiesTab({ api, onOpen }) {
+function StudiesTab({ api, onOpen, refreshKey = 0 }) {
   const [scans,   setScans]   = useState([]);
   const [page,    setPage]    = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -21,7 +15,25 @@ function StudiesTab({ api, onOpen }) {
 
   const hasFilters = searchId || dateFrom || dateTo;
 
-  /* ---------------- загрузка ---------------- */
+  const formatGender = (g) => {
+    if (g === 'Male') return 'Муж.';
+    if (g === 'Female') return 'Жен.';
+    return g; 
+  };
+  const formatStatus = (status) => {
+    switch (status) {
+      case 'queued':
+        return 'В очереди';
+      case 'processing':
+        return 'Обрабатывается';
+      case 'done':
+        return 'Готово';
+      default:
+        return status;
+    }
+  };
+
+
   useEffect(() => {
     (async () => {
       const qs = new URLSearchParams();
@@ -34,17 +46,16 @@ function StudiesTab({ api, onOpen }) {
       const r = await api(`/scans?${qs.toString()}`);
       if (!r.ok) { setScans([]); setHasMore(false); return; }
 
-      const raw   = await r.json();                 // [], {data:[]}, null …
+      const raw   = await r.json();                 
       const full  = Array.isArray(raw) ? raw : raw?.data ?? [];
-      const safe  = Array.isArray(full) ? full : []; // гарантировано массив
-
+      const safe  = Array.isArray(full) ? full : []; 
       const start = page * PAGE_LIMIT;
       setScans(safe.slice(start, start + PAGE_LIMIT));
       setHasMore(start + PAGE_LIMIT < safe.length);
     })();
-  }, [api, page, searchId, dateFrom, dateTo]);
+  }, [api, page, searchId, dateFrom, dateTo, refreshKey]);
 
-  /* ---------------- UI ---------------- */
+
   return (
     <>
       {/* фильтр */}
@@ -84,10 +95,13 @@ function StudiesTab({ api, onOpen }) {
             <tr key={s.ID} onClick={()=>onOpen(s.ID)} style={{ cursor:'pointer' }}>
               <td style={styles.td}>{s.ID}</td>
               <td style={styles.td}>{s.PatientName}</td>
-              <td style={styles.td}>{s.PatientGender}, {s.PatientAge}</td>
+              <td style={styles.td}>{formatGender(s.PatientGender)}, {s.PatientAge}</td>
               <td style={styles.td}>{new Date(s.ScanDate).toLocaleDateString()}</td>
               <td style={styles.td}>{new Date(s.CreatedAt).toLocaleDateString()}</td>
-              <td style={{ ...styles.td, color:getStatusColor(s.Status) }}>{s.Status}</td>
+              <td style={{ ...styles.td, color: getStatusColor(s.Status) }}>
+                {formatStatus(s.Status)}
+              </td>
+
             </tr>
           ))}
         </tbody>

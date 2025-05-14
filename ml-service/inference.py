@@ -21,6 +21,7 @@ from monai.transforms import (
     ToTensord
 )
 from monai.networks.nets import DenseNet121
+from nibabel.orientations import aff2axcodes
 
 # === Устройство ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,7 +31,7 @@ idx_to_class = {0: "CN", 1: "MCI", 2: "AD"}
 
 # === Загрузка модели ===
 model = DenseNet121(spatial_dims=2, in_channels=3, out_channels=3).to(device)
-model.load_state_dict(torch.load("./frozen3_4.pth", map_location=device))
+model.load_state_dict(torch.load("./fullyunfrozen_2.pth", map_location=device))
 model.eval()
 
 inference_transforms = Compose([
@@ -43,6 +44,7 @@ inference_transforms = Compose([
 ])
 
 def extract_slices(nii_path: str, num_slices: int = 15) -> torch.Tensor:
+
     img = nib.load(nii_path).get_fdata(dtype=np.float32)
 
     if img.ndim == 2:
@@ -87,7 +89,11 @@ def save_debug_slices(slices: torch.Tensor, out_dir: str):
 
 # === Инференс по NIfTI-файлу ===
 def run_inference(nii_path: str, save_debug: bool = True) -> tuple[int, float]:
+    
+    print_nifti_metadata(nii_path)
+    check_orientation(nii_path) 
     slices = extract_slices(nii_path).to(device)
+    
     if save_debug:
         debug_dir = os.path.join("./debug_slices", os.path.splitext(os.path.basename(nii_path))[0])
         save_debug_slices(slices.cpu(), debug_dir)
@@ -102,6 +108,39 @@ def run_inference(nii_path: str, save_debug: bool = True) -> tuple[int, float]:
         confidence = float(mean_probs[pred_idx])
 
     return pred_idx, confidence
+
+def check_orientation(nii_path: str):
+    img = nib.load(nii_path)
+    axcodes = aff2axcodes(img.affine)
+    print(f"Оси снимка: {axcodes}")
+
+    # Простейшая логика: если оси не стандартные, нужно переориентировать
+    if axcodes != ('R', 'A', 'S') and axcodes != ('L', 'P', 'S'):
+        print("Ориентация нестандартная! Возможно, нужен поворот до аксиального вида.")
+    else:
+        print("Ориентация в порядке (аксиальный срез).")
+
+
+
+def print_nifti_metadata(nii_path: str):
+    img = nib.load(nii_path)
+    header = img.header
+
+    print(f"=== Метаданные NIfTI файла: {nii_path} ===")
+    print(f"Форма данных (shape): {img.shape}")
+    print(f"Тип данных (dtype): {img.get_data_dtype()}")
+    print(f"Аффинная матрица (affine):\n{img.affine}")
+    print(f"Размер вокселей (pixdim): {header.get_zooms()}")
+    print(f"Описание (descrip): {header['descrip'].tobytes().decode(errors='ignore').strip()}")
+    print(f"Код пространственной ориентации (qform_code): {header['qform_code']}")
+    print(f"Код пространственной ориентации (sform_code): {header['sform_code']}")
+    print(f"Калибровка максимума (cal_max): {header['cal_max']}")
+    print(f"Калибровка минимума (cal_min): {header['cal_min']}")
+    print(f"Параметры интенсивности (scl_slope, scl_inter): ({header['scl_slope']}, {header['scl_inter']})")
+    print(f"Время сканирования (toffset): {header['toffset']}")
+    print(f"Количество временных точек (dim[4]): {header['dim'][4]}")
+    print("=" * 50)
+
 
 def generate_gradcam(
     nii_path: str,

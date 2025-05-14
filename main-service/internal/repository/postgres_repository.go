@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -40,6 +41,75 @@ func (r *PostgresRepository) Close() error {
 	return nil
 }
 
+func (r *Repository) FindUserByEmail(email string) (*domain.User, error) {
+	u := &domain.User{Email: email}
+	if err := r.Postgres.db.QueryRow("SELECT * FROM \"users\"  WHERE email = $1",
+		email).Scan(&u.Id, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.InviteToken, &u.InviteTokenExp); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return u, nil
+}
+
+func (r *Repository) GetUserForUpdate(userID int64) (*domain.User, error) {
+	query := `
+		SELECT id, username, email, role, status, password_hash, invite_token, invite_token_expires_at
+		FROM users 
+		WHERE id = $1
+	`
+
+	row := r.Postgres.db.QueryRow(query, userID)
+
+	u := &domain.User{}
+	err := row.Scan(
+		&u.Id,
+		&u.Username,
+		&u.Email,
+		&u.Role,
+		&u.Status,
+		&u.PasswordHash,
+		&u.InviteToken,
+		&u.InviteTokenExp,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return u, nil
+}
+
+func (r *Repository) GetUserByID(userID int64) (*domain.User, error) {
+	query := `
+		SELECT id, username, email, role, status
+		FROM users 
+		WHERE id = $1
+	`
+
+	row := r.Postgres.db.QueryRow(query, userID)
+
+	u := &domain.User{}
+	err := row.Scan(
+		&u.Id,
+		&u.Username,
+		&u.Email,
+		&u.Role,
+		&u.Status,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return u, nil
+}
+
 func (r *Repository) CreateUserInvite(u *domain.User) (*domain.User, error) {
 	query := `
 		INSERT INTO "users" 
@@ -68,56 +138,6 @@ func (r *Repository) CreateUserInvite(u *domain.User) (*domain.User, error) {
 	return u, nil
 }
 
-func (r *Repository) FindUserByEmail(email string) (*domain.User, error) {
-	u := &domain.User{Email: email}
-	if err := r.Postgres.db.QueryRow("SELECT * FROM \"users\"  WHERE email = $1",
-		email).Scan(&u.Id, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.Status, &u.InviteToken, &u.InviteTokenExp); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, domain.ErrWrongEmailOrPassword
-		}
-		return nil, err
-	}
-	return u, nil
-}
-
-// func (r *Repository) ConfirmEmail(code string) error {
-// 	tx, err := r.Postgres.db.Begin()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	defer tx.Rollback()
-
-// 	var userID int
-// 	err = tx.QueryRow("SELECT user_id FROM email_confirmations WHERE code = $1 AND expires_at > NOW();", code).Scan(&userID)
-
-// 	if err == sql.ErrNoRows {
-// 		rollbackErr := tx.Rollback()
-// 		if rollbackErr != nil {
-// 			return domain.ErrWrongEmailConfirmationCode
-// 		}
-// 	} else if err != nil {
-// 		return err
-// 	}
-
-// 	_, err = tx.Exec("DELETE FROM email_confirmations WHERE code = $1", code)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	_, err = tx.Exec("UPDATE \"users\" SET is_confirmed = $1 WHERE id = $2", true, userID)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = tx.Commit()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 func (r *Repository) CompleteInvite(code string, passwordHash string) error {
 	tx, err := r.Postgres.db.Begin()
 	if err != nil {
@@ -135,10 +155,10 @@ func (r *Repository) CompleteInvite(code string, passwordHash string) error {
 		WHERE invite_token = $1
 	`
 	err = tx.QueryRow(query, code).Scan(&userID, &currentStatus, &expiresAt)
-	if err == sql.ErrNoRows {
-		return domain.ErrWrongInviteCode
-	}
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ErrWrongInviteCode
+		}
 		return err
 	}
 
@@ -185,8 +205,7 @@ func (r *Repository) GetUsersFiltered(role, status string, limit, offset int) ([
 	var users []*domain.User
 	for rows.Next() {
 		var u domain.User
-		err := rows.Scan(&u.Id, &u.Username, &u.Email, &u.Role, &u.Status)
-		if err != nil {
+		if err := rows.Scan(&u.Id, &u.Username, &u.Email, &u.Role, &u.Status); err != nil {
 			return nil, err
 		}
 		users = append(users, &u)
@@ -195,44 +214,69 @@ func (r *Repository) GetUsersFiltered(role, status string, limit, offset int) ([
 	return users, nil
 }
 
-func (r *Repository) GetUserByID(userID int64) (*domain.User, error) {
-	query := `
-		SELECT id, username, email, role, status 
-		FROM users 
-		WHERE id = $1
-	`
-
-	row := r.Postgres.db.QueryRow(query, userID)
-
-	u := &domain.User{}
-	err := row.Scan(&u.Id, &u.Username, &u.Email, &u.Role, &u.Status)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
-		}
-		return nil, err
-	}
-
-	return u, nil
-}
-
 func (r *Repository) UpdateUserByID(user *domain.User) error {
 	query := `
 		UPDATE users
-		SET username = $1,
-		    role = $2,
-		    status = $3
-		WHERE id = $4
+		SET 
+			username = $1,
+			role = $2,
+			status = $3,
+			password_hash = $4,
+			invite_token = $5,
+			invite_token_expires_at = $6
+		WHERE id = $7
 	`
 
 	_, err := r.Postgres.db.Exec(query,
 		user.Username,
 		user.Role,
 		user.Status,
+		user.PasswordHash,
+		user.InviteToken,
+		user.InviteTokenExp,
 		user.Id,
 	)
 
 	return err
+}
+
+func (r *Repository) SaveResetToken(userID int64, resetToken string, expiresAt time.Time) error {
+	query := `
+		UPDATE users
+		SET invite_token = $1,
+		    invite_token_expires_at = $2
+		WHERE id = $3
+	`
+	_, err := r.Postgres.db.Exec(query, resetToken, expiresAt, userID)
+	return err
+}
+
+func (r *Repository) FindUserByResetToken(token string) (*domain.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, role, status, invite_token, invite_token_expires_at
+		FROM users
+		WHERE invite_token = $1
+	`
+
+	user := &domain.User{}
+	err := r.Postgres.db.QueryRow(query, token).Scan(
+		&user.Id,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Role,
+		&user.Status,
+		&user.InviteToken,
+		&user.InviteTokenExp,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrResetTokenNotFound
+		}
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (r *Repository) SaveScanMetadata(
@@ -356,4 +400,17 @@ func (r *Repository) GetScanDetail(userID, scanID int64) (*domain.MRIScanDetail,
 	}
 
 	return scan, nil
+}
+
+func (r *Repository) UpdateUserPassword(userID int64, hash string) error {
+	query := `
+		UPDATE users
+		SET password_hash = $1,
+		    invite_token = NULL,
+		    invite_token_expires_at = NULL
+		WHERE id = $2
+	`
+
+	_, err := r.Postgres.db.Exec(query, hash, userID)
+	return err
 }

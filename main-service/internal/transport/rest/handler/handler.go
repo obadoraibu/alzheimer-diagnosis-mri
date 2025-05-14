@@ -7,24 +7,26 @@ import (
 )
 
 type Service interface {
-	SignIn(r *domain.UserSignInInput) (*domain.UserSignInResponse, error)
-	//SignUp(c *gin.Context, r *domain.UserSignUpInput) error
-	Refresh(refresh, fingerprint string) (*domain.UserRefreshResponse, error)
-	Revoke(refresh, fingerprint string) error
-	UserInfo(email string) (*domain.User, error)
-	CompleteInvite(code string, password string) error
-	CreateUserInvite(r *domain.CreateUserInvite) error
-	GetUsersList(role, status string, limit, offset int) ([]*domain.User, error)
+	SignIn(*domain.UserSignInInput) (*domain.UserSignInOutput, error)
+	Refresh(*domain.TokenRefreshInput) (*domain.TokenRefreshOutput, error)
+	Revoke(*domain.TokenRevokeInput) error
+	CompleteInvite(*domain.CompleteInviteInput) error
 
-	UpdateUser(userID int64, input *domain.UpdateUserInput) error
-	DeleteUser(userID int64) error
+	ResetPassword(*domain.ResetPasswordInput) error
+	ResetPasswordComplete(*domain.ResetPasswordConfirmInput) error
+
+	CreateUserInvite(*domain.CreateUserInviteInput) error
+	GetUsersList(*domain.UserListFilterInput) ([]*domain.UserResponse, error)
+	UpdateUser(*domain.UpdateUserInput) error
+	DeleteUser(*domain.DeleteUserInput) error
+
+	GetUserProfile(*domain.GetUserProfileInput) (*domain.UserProfileOutput, error)
+
+	//UserInfo(*domain.GetUserProfileInput) (*domain.User, error)
 
 	CreateMRIAnalysis(ctx *gin.Context, input *domain.CreateAnalysisInput) error
-
 	GetScansByFilters(userID int64, filter *domain.ScanFilter) ([]*domain.MRIScan, error)
 	GetScanByID(userID, scanID int64) (*domain.MRIScanDetail, error)
-
-	GetUserProfile(userID int64) (*domain.UserProfile, error)
 }
 
 type Handler struct {
@@ -53,9 +55,17 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 	// Configure CORS middleware
 	config := cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001"}, // Allow frontend origin
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		AllowOrigins: []string{"http://localhost:3000"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{
+			"Authorization",
+			"Content-Type",
+			"X-Requested-With",
+			"Accept",
+			"Origin",
+			"Access-Control-Allow-Credentials",
+		},
+		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}
 
@@ -67,11 +77,10 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		adminGroup := auth.Group("/admin")
 		adminGroup.Use(h.AdminMiddleware())
 		{
-			adminGroup.POST("/users", h.CreateUserInvite) // Пригласить нового пользователя (по умолчанию DOCTOR)
+			adminGroup.POST("/users", h.CreateUserInvite)
 			adminGroup.GET("/users", h.ListUsers)
-			//adminGroup.GET("/users/:id", h.GetUserByID)         // Детальная инфа
-			adminGroup.PUT("/users/:id", h.UpdateUser)    // Изменить (роль, статус, ФИО и т.д.)
-			adminGroup.DELETE("/users/:id", h.DeleteUser) // Удалить/заблокировать и т.п.
+			adminGroup.PUT("/users/:id", h.UpdateUser)
+			adminGroup.DELETE("/users/:id", h.DeleteUser)
 		}
 		auth.POST("/upload", h.CreateMRIAnalysis)
 		auth.GET("/scans", h.ListScans)
@@ -79,10 +88,12 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		auth.GET("/profile", h.GetProfileInfo)
 	}
 
-	// router.POST("/sign-up", h.SignUp)
-	// router.GET("/email-confirm/:code", h.ConfirmEmail)
+	router.POST("/reset-password", h.ResetPassword)
+	router.POST("/reset-password/:code", h.ResetPasswordConfirm)
 
 	router.POST("/complete-invite/:code", h.CompleteInvite)
+
+	//
 	router.POST("/sign-in", h.SignIn)
 	router.POST("/refresh", h.Refresh)
 	router.POST("/revoke", h.Revoke)

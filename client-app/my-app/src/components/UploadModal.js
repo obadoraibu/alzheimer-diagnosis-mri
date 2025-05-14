@@ -21,6 +21,13 @@ export default function UploadModal({ api, close, onSuccess }) {
   /* отправка */
   const handleSubmit = async e => {
     e.preventDefault();
+
+    const form = e.target;
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
     if (!file) return;
 
     const f = new FormData();
@@ -42,6 +49,7 @@ export default function UploadModal({ api, close, onSuccess }) {
       alert('Ошибка загрузки');
     }
   };
+
 
   /* кастомный radio-button */
   const Radio = ({ value, children }) => (
@@ -152,7 +160,7 @@ export default function UploadModal({ api, close, onSuccess }) {
             />
           </Row>
 
-          <Row label="Файл снимка (диком / nifti)">
+          <Row label="Файл снимка (DICOM / NifTI)">
             <input
               type="file"
               accept=".dcm,.nii,.nii.gz"

@@ -1,63 +1,64 @@
-import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BASE_URL } from '../constants';
+import { BASE_URL }    from '../constants';
 
 /**
- * Хук-обёртка вокруг fetch:
- *  ▸ автоматически ставит Bearer-токен;
- *  ▸ при 401 пытается обновить access-token;
- *  ▸ при провале refresh — редиректит на /sign-in.
+ * useApi   — fetch-wrapper с авто-refresh-токена
+ *
+ * ▸ ставит Bearer accessToken из localStorage
+ * ▸ при 401 вызывает POST /refresh { fingerprint }  (cookie ➜ refresh)
+ * ▸ если пришёл новый токен → сохраняет и повторяет исходный запрос
+ * ▸ если refresh неудачный → очищаем хранилище и редирект на /sign-in
  */
-export function useApi() {
+export const useApi = () => {
   const navigate = useNavigate();
 
-  const logout = useCallback(() => {
+  /* fingerprint, сохранённый в sign-in */
+  const fp = () => navigator.userAgent + Math.random().toString(36).substring(2);
+
+  /* выход с очисткой */
+  const forceLogout = () => {
     localStorage.clear();
     navigate('/sign-in');
-  }, [navigate]);
+  };
 
-  /* попытка обновить пары токенов */
-  const refreshTokens = useCallback(async () => {
-    const refresh = localStorage.getItem('refreshToken');
-    if (!refresh) return false;
-
-    const res = await fetch(`${BASE_URL}/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:   JSON.stringify({ refresh }),
-      credentials: 'include',
+  /* собственно fetch-обёртка */
+  const api = async (url, opts = {}, retry = true) => {
+    const res = await fetch(url.startsWith('http') ? url : `${BASE_URL}${url}`, {
+      ...opts,
+      credentials: 'include',                          // <── важен для refresh-cookie
+      headers: {
+        ...(opts.headers || {}),
+        Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}`,
+      },
     });
 
-    if (!res.ok) return false;
-    const data = await res.json();
-    data.access  && localStorage.setItem('accessToken',  data.access);
-    data.refresh && localStorage.setItem('refreshToken', data.refresh);
-    return true;
-  }, []);
+    /* если всё нормально или уже была повторная попытка */
+    if (res.status !== 401 || !retry) return res;
 
-  /* сам fetch-wrapper */
-  const api = useCallback(
-    async (url, opts = {}, retry = true) => {
-      const res = await fetch(
-        url.startsWith('http') ? url : `${BASE_URL}${url}`,
-        {
-          ...opts,
-          headers: {
-            ...(opts.headers || {}),
-            Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-        }
-      );
+    /* ---------------- refresh ---------------- */
+    try {
+      const ref = await fetch(`${BASE_URL}/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fingerprint: fp() }),
+      });
 
-      if (res.status !== 401 || !retry) return res;
-      if (!(await refreshTokens())) {
-        logout();
-        return res;
+      const body = await ref.json().catch(() => ({}));
+
+      if (ref.ok && body.success && body.data?.accessToken) {
+        localStorage.setItem('accessToken', body.data.accessToken);
+        /* повторяем оригинальный запрос один раз                */
+        return api(url, opts, false); // retry = false → чтобы не попасть в цикл
       }
-      return api(url, opts, false); // повторяем один раз
-    },
-    [logout, refreshTokens]
-  );
+    } catch (_) {
+      /* ignore – перейдём к logout */
+    }
+
+    /* refresh не помог → выходим */
+    forceLogout();
+    return res;                       // отдаём исходный 401 (можно не использовать)
+  };
 
   return api;
-}
+};

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { formStyles as styles } from '../styles/styles';
 
 function SignUp() {
-  const { code } = useParams(); // получаем код из URL
-  const navigate = useNavigate(); // навигатор для перехода
+  const { code } = useParams(); 
+  const navigate = useNavigate(); 
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -37,76 +38,9 @@ function SignUp() {
     }
   };
 
-  const styles = {
-    container: {
-      minHeight: '100vh',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#f2f2f2',
-      padding: '1em',
-    },
-    loginBox: {
-      backgroundColor: '#fff',
-      borderRadius: '0.5em',
-      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
-      padding: '2em',
-      maxWidth: '400px',
-      width: '100%',
-      margin: '1em',
-    },
-    heading: {
-      marginBottom: '1em',
-      textAlign: 'center',
-      color: '#004D4D',
-    },
-    formGroup: {
-      marginBottom: '1em',
-    },
-    label: {
-      display: 'block',
-      marginBottom: '0.5em',
-      fontWeight: 'bold',
-      color: '#333',
-    },
-    input: {
-      width: '100%',
-      padding: '0.75em',
-      border: '1px solid #ccc',
-      borderRadius: '0.25em',
-      fontSize: '1em',
-      boxSizing: 'border-box',
-    },
-    button: {
-      width: '100%',
-      padding: '0.75em',
-      backgroundColor: '#008080',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '0.25em',
-      fontSize: '1em',
-      cursor: 'pointer',
-      marginTop: '1em',
-    },
-    message: {
-      marginTop: '1em',
-      textAlign: 'center',
-    },
-    loginText: {
-      marginTop: '1em',
-      textAlign: 'center',
-      fontSize: '0.9em',
-    },
-    loginLink: {
-      color: '#008080',
-      textDecoration: 'none',
-      fontWeight: 'bold',
-    },
-  };
-
   return (
     <div style={styles.container}>
-      <div style={styles.loginBox}>
+      <div style={styles.formBox}>
         <h2 style={styles.heading}>Регистрация по приглашению</h2>
         <form onSubmit={handleSignUp}>
           <div style={styles.formGroup}>
@@ -136,9 +70,9 @@ function SignUp() {
           </p>
         )}
 
-        <p style={styles.loginText}>
+        <p style={styles.linkText}>
           Уже зарегистрированы?{' '}
-          <Link to="/sign-in" style={styles.loginLink}>
+          <Link to="/sign-in" style={styles.link}>
             Войти
           </Link>
         </p>

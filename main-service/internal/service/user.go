@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,52 +10,69 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (s *Service) CreateUserInvite(r *domain.CreateUserInvite) error {
-
+func (s *Service) CreateUserInvite(input *domain.CreateUserInviteInput) error {
 	code := uuid.New()
-	duration, err := time.ParseDuration("24h")
-	if err != nil {
-		return err
-	}
+	expiration := time.Now().Add(24 * time.Hour)
 
 	u := &domain.User{
-		Username: r.Username,
-		Email:    r.Email,
-		Role:     r.Role,
+		Username: input.Username,
+		Email:    input.Email,
+		Role:     input.Role,
 		Status:   "invited",
 		InviteToken: sql.NullString{
 			String: code.String(),
 			Valid:  true,
 		},
 		InviteTokenExp: sql.NullTime{
-			Time:  time.Now().Add(duration),
+			Time:  expiration,
 			Valid: true,
 		},
 	}
 
-	u, err = s.repo.CreateUserInvite(u)
+	created, err := s.repo.CreateUserInvite(u)
 	if err != nil {
-		return err
+		if errors.Is(err, domain.ErrUserAlreadyExists) {
+			return domain.ErrInviteAlreadyExists
+		}
+		return domain.ErrInternal(err)
 	}
 
-	logrus.Printf("user %d invite has been created", u.Id)
+	logrus.WithField("user_id", created.Id).Info("user invite created")
 
-	err = s.emailSender.SendInvEmail(u.Email, code.String())
-	if err != nil {
-		return err
+	if err := s.emailSender.SendInvEmail(created.Email, code.String()); err != nil {
+		return domain.ErrInternal(err)
 	}
+
 	return nil
 }
 
-func (s *Service) GetUsersList(role, status string, limit, offset int) ([]*domain.User, error) {
-	return s.repo.GetUsersFiltered(role, status, limit, offset)
+func (s *Service) GetUsersList(input *domain.UserListFilterInput) ([]*domain.UserResponse, error) {
+	users, err := s.repo.GetUsersFiltered(input.Role, input.Status, input.Limit, input.Offset)
+	if err != nil {
+		return nil, domain.ErrInternal(err)
+	}
+
+	var resp []*domain.UserResponse
+	for _, u := range users {
+		resp = append(resp, &domain.UserResponse{
+			ID:       u.Id,
+			Username: u.Username,
+			Email:    u.Email,
+			Role:     u.Role,
+			Status:   u.Status,
+		})
+	}
+
+	return resp, nil
 }
 
-func (s *Service) UpdateUser(userID int64, input *domain.UpdateUserInput) error {
-
-	user, err := s.repo.GetUserByID(userID)
+func (s *Service) UpdateUser(input *domain.UpdateUserInput) error {
+	user, err := s.repo.GetUserForUpdate(input.ID)
 	if err != nil {
-		return err
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.ErrUserNotFound
+		}
+		return domain.ErrInternal(err)
 	}
 
 	if input.Username != "" {
@@ -67,31 +85,41 @@ func (s *Service) UpdateUser(userID int64, input *domain.UpdateUserInput) error 
 		user.Status = input.Status
 	}
 
-	err = s.repo.UpdateUserByID(user)
-	if err != nil {
-		return err
+	if err := s.repo.UpdateUserByID(user); err != nil {
+		return domain.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *Service) DeleteUser(userID int64) error {
-	user, err := s.repo.GetUserByID(userID)
+func (s *Service) DeleteUser(input *domain.DeleteUserInput) error {
+	user, err := s.repo.GetUserForUpdate(input.ID)
 	if err != nil {
-		return err
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.ErrUserNotFound
+		}
+		return domain.ErrInternal(err)
 	}
 
 	user.Status = "suspended"
-	return s.repo.UpdateUserByID(user)
-}
 
-func (s *Service) GetUserProfile(userID int64) (*domain.UserProfile, error) {
-	user, err := s.repo.GetUserByID(userID)
-	if err != nil {
-		return nil, err
+	if err := s.repo.UpdateUserByID(user); err != nil {
+		return domain.ErrInternal(err)
 	}
 
-	return &domain.UserProfile{
+	return nil
+}
+
+func (s *Service) GetUserProfile(input *domain.GetUserProfileInput) (*domain.UserProfileOutput, error) {
+	user, err := s.repo.GetUserByID(input.UserID)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, domain.ErrInternal(err)
+	}
+
+	return &domain.UserProfileOutput{
 		ID:       user.Id,
 		Username: user.Username,
 		Email:    user.Email,

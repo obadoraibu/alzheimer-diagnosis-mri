@@ -16,9 +16,7 @@ type Service struct {
 }
 
 type Repository interface {
-	//CreateUserAndEmailConfirmation(u *domain.User, confirmationCode string, expiresAt time.Time) (*domain.User, error)
 	FindUserByEmail(email string) (*domain.User, error)
-	//ConfirmEmail(code string) error
 	AddToken(fingerprint, refresh string, user_id int64, role string) error
 	DeleteToken(u *domain.User) error
 	FindAndDeleteRefreshToken(refresh, fingerprint string) (string, error)
@@ -28,6 +26,7 @@ type Repository interface {
 	GetUsersFiltered(role, status string, limit, offset int) ([]*domain.User, error)
 
 	GetUserByID(userID int64) (*domain.User, error)
+	GetUserForUpdate(userID int64) (*domain.User, error)
 	UpdateUserByID(user *domain.User) error
 
 	UploadScanToMinIO(ctx context.Context, objectName string, file multipart.File, size int64, contentType string) error
@@ -47,15 +46,22 @@ type Repository interface {
 	GetScanDetail(userID, scanID int64) (*domain.MRIScanDetail, error)
 
 	PresignedGetObject(objectName string) (*url.URL, error)
+
+	SaveResetToken(userID int64, resetToken string, expiresAt time.Time) error
+	FindUserByResetToken(token string) (*domain.User, error)
+
+	UpdateUserPassword(userID int64, hash string) error
 }
 
 type TokenManager interface {
 	GenerateJWT(user_id int64, role string) (string, error)
 	GenerateRefresh() string
+	GenerateResetToken() string
 }
 
 type EmailSender interface {
 	SendInvEmail(to, code string) error
+	SendPasswordResetEmail(to, code string) error
 }
 
 type Dependencies struct {

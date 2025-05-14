@@ -1,10 +1,3 @@
-/*
- * AdminTab – таблица пользователей
- * props:
- *   api       – fetch-wrapper
- *   onEdit    – (user) => void
- *   onDelete  – (user) => void
- */
 import React, { useEffect, useState } from 'react';
 import { homeStyles as styles } from '../styles/styles';
 import { PAGE_LIMIT }            from '../constants';
@@ -17,14 +10,27 @@ const SmallBtn = ({ danger, ...rest }) => (
   />
 );
 
-function AdminTab({
-  api,
-  onEdit   = () => {},   // дефолтные заглушки
-  onDelete = () => {},
-}) {
+function AdminTab({ api, onEdit = () => {}, onDelete = () => {}, refreshKey = 0 }) {
   const [users, setUsers] = useState([]);
   const [page,  setPage]  = useState(0);
   const [more,  setMore]  = useState(false);
+
+  const formatRole = role => {
+    switch (role) {
+      case 'admin': return 'Администратор';
+      case 'doctor': return 'Врач';
+      default: return role;
+    }
+  };
+
+  const formatStatus = status => {
+    switch (status) {
+      case 'active': return 'Активен';
+      case 'suspended': return 'Отстранён';
+      case 'invited': return 'Приглашён';
+      default: return status;
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -43,7 +49,7 @@ function AdminTab({
       setUsers(safe.slice(start, start + PAGE_LIMIT));
       setMore(start + PAGE_LIMIT < safe.length);
     })();
-  }, [api, page]);
+  }, [api, page, refreshKey]);
 
   return (
     <>
@@ -53,16 +59,18 @@ function AdminTab({
           <th style={styles.th}>Роль</th><th style={styles.th}>Статус</th><th style={styles.th}>Действия</th>
         </tr></thead>
         <tbody>
-          {users.map(u=>(
-            <tr key={u.id||u.ID}>
-              <td style={styles.td}>{u.id||u.ID}</td>
+          {users.map(u => (
+            <tr key={u.id || u.ID}>
+              <td style={styles.td}>{u.id || u.ID}</td>
               <td style={styles.td}>{u.username}</td>
               <td style={styles.td}>{u.email}</td>
-              <td style={styles.td}>{u.role}</td>
-              <td style={{ ...styles.td, color:getStatusColor(u.status) }}>{u.status}</td>
-              <td style={{ ...styles.td, display:'flex', gap:6 }}>
-                <SmallBtn onClick={()=>onEdit(u)}>✏️</SmallBtn>
-                <SmallBtn danger onClick={()=>onDelete(u)}>🗑️</SmallBtn>
+              <td style={styles.td}>{formatRole(u.role)}</td>
+              <td style={{ ...styles.td, color: getStatusColor(u.status) }}>
+                {formatStatus(u.status)}
+              </td>
+              <td style={{ ...styles.td, display: 'flex', gap: 6 }}>
+                <SmallBtn onClick={() => onEdit(u)}>✏️</SmallBtn>
+                <SmallBtn danger onClick={() => onDelete(u)}>🗑️</SmallBtn>
               </td>
             </tr>
           ))}
