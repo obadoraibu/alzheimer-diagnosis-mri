@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/obadoraibu/go-auth/internal/domain"
@@ -25,8 +27,15 @@ type Service interface {
 	//UserInfo(*domain.GetUserProfileInput) (*domain.User, error)
 
 	CreateMRIAnalysis(ctx *gin.Context, input *domain.CreateAnalysisInput) error
-	GetScansByFilters(userID int64, filter *domain.ScanFilter) ([]*domain.MRIScan, error)
-	GetScanByID(userID, scanID int64) (*domain.MRIScanDetail, error)
+	GetScansByFilters(
+		ctx context.Context,
+		userID int64,
+		filter *domain.ScanFilter,
+	) ([]*domain.MRIScan, error)
+	GetScanByID(
+		ctx context.Context,
+		userID, scanID int64,
+	) (*domain.MRIScanDetail, error)
 }
 
 type Handler struct {

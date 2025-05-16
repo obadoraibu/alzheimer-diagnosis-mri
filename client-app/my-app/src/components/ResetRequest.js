@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formStyles as styles } from '../styles/styles';
 
-/**
- * ResetRequest — форма «Забыли пароль?»
- * Новый ответ сервера: { "success": true }  (или { success:false, message:"..." })
- */
+
 function ResetRequest() {
   const [email,     setEmail]     = useState('');
   const [message,   setMessage]   = useState('');
@@ -24,14 +21,12 @@ function ResetRequest() {
 
       const json = await res.json().catch(() => ({}));
 
-      /* ---------------- SUCCESS ---------------- */
       if (res.ok && json.success) {
         setIsSuccess(true);
         setMessage('Письмо с инструкциями отправлено на почту.');
         return;
       }
 
-      /* 200 OK, но success:false  */
       if (!json.success) {
         const code = json.error?.code;
 
@@ -46,7 +41,6 @@ function ResetRequest() {
         return;
       }
 
-      /* ---------------- ERROR ---------------- */
       setIsSuccess(false);
       setMessage(json.message || 'Ошибка запроса');
 
@@ -56,7 +50,6 @@ function ResetRequest() {
     }
   };
 
-  /* ---------------- render ---------------- */
   return (
     <div style={styles.container}>
       <div style={styles.formBox}>

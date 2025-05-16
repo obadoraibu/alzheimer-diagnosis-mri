@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { homeStyles as styles } from '../styles/styles';
 
-/* единый «ряд» формы */
 const Row = ({ label, children }) => (
   <>
     <label
@@ -18,13 +17,6 @@ const Row = ({ label, children }) => (
   </>
 );
 
-/**
- * InviteUserModal
- * props:
- *   api
- *   close()      – закрыть
- *   onSuccess()  – опционально, после успешного POST
- */
 export default function InviteUserModal({ api, close, onSuccess }) {
   const [name,  setName]  = useState('');
   const [email, setEmail] = useState('');

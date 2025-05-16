@@ -3,7 +3,6 @@ import { homeStyles as styles } from '../styles/styles';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-/* «карточка»-строка левой колонки */
 const Row = ({ label, children, dark }) => (
   <tr>
     <td
@@ -29,11 +28,9 @@ export default function ScanDetailModal({ scan, close }) {
 
   const gradcam = scan.gradcam_url || scan.GradCAMURL || '';
 
-  /* ======== PDF generation ======== */
   const downloadPdf = async () => {
     setDownloading(true);
     try {
-      /* «фоткаем» html-таблицу → canvas */
       const node = document.getElementById('scan-info-table');
       const canvas = await html2canvas(node, { scale: 2 });
       const imgData = canvas.toDataURL('image/png');
@@ -41,17 +38,14 @@ export default function ScanDetailModal({ scan, close }) {
       const doc = new jsPDF('p', 'pt', 'a4');
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(18);
-      doc.text(`Scan #${scan.ID || scan.id}`, 40, 50);
+      doc.text(`#${scan.ID || scan.id}`, 40, 50);
 
-      /* вставляем таблицу-картинку */
+
       doc.addImage(imgData, 'PNG', 40, 70, 515, 0);
 
-      /* grad-cam изображение (если есть) */
       if (gradcam) {
         const img = await toDataUrl(gradcam);
-        doc.addPage();
-        doc.text('Grad-CAM', 40, 50);
-        doc.addImage(img, 'PNG', 40, 70, 515, 0);
+        doc.addImage(img, 'PNG', 40, 400, 400, 0); 
       }
 
       doc.save(`scan_${scan.ID || scan.id}.pdf`);
@@ -60,7 +54,7 @@ export default function ScanDetailModal({ scan, close }) {
     }
   };
 
-  /* helper: url → base64 */
+
   const toDataUrl = url =>
     new Promise(resolve => {
       const img = new Image();
@@ -75,7 +69,7 @@ export default function ScanDetailModal({ scan, close }) {
       img.src = url;
     });
 
-  /* ======== layout ======== */
+
   return (
     <div style={styles.modalOverlay} onClick={close}>
       <div
@@ -122,12 +116,25 @@ export default function ScanDetailModal({ scan, close }) {
         >
           <tbody>
             <Row label="Пациент">{scan.patient_name || scan.PatientName}</Row>
-            <Row label="Пол">{scan.patient_gender || scan.PatientGender}</Row>
+            <Row label="Пол">
+              {(scan.patient_gender || scan.PatientGender) === 'Male'
+                ? 'Мужской'
+                : (scan.patient_gender || scan.PatientGender) === 'Female'
+                ? 'Женский'
+                : '—'}
+            </Row>
             <Row label="Возраст">{scan.patient_age ?? scan.PatientAge}</Row>
             <Row label="Дата снимка">
               {new Date(scan.scan_date || scan.ScanDate).toLocaleDateString()}
             </Row>
-            <Row label="Статус">{scan.status || scan.Status}</Row>
+            <Row label="Статус">
+              {{
+                queued: 'Ожидает анализа',
+                processing: 'Обрабатывается',
+                done: 'Готов',
+                error: 'Ошибка',
+              }[scan.status || scan.Status] || (scan.status || scan.Status)}
+            </Row>
             {scan.diagnosis != null && <Row label="Диагноз">{scan.diagnosis}</Row>}
             {scan.confidence != null && (
               <Row label="Достоверность">{(scan.confidence * 100).toFixed(1)}%</Row>

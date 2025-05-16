@@ -17,14 +17,7 @@ const Row = ({ label, children }) => (
   </>
 );
 
-/**
- * EditUserModal
- * props:
- *   api
- *   user
- *   close()
- *   onSuccess()
- */
+
 export default function EditUserModal({ api, user, close, onSuccess }) {
   const [name,   setName]   = useState(user.username);
   const [role,   setRole]   = useState(user.role);

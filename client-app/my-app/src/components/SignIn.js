@@ -2,12 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { formStyles as styles } from '../styles/styles';
 
-/**
- * SignIn
- *  ─ если сервер вернёт 401 + code:"WRONG_CREDENTIALS",
- *    показываем красным: «Неверный email или пароль».
- *  ─ все прочие ошибки — единое нейтральное сообщение.
- */
 function SignIn() {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -15,7 +9,6 @@ function SignIn() {
   const [isError,  setIsError]  = useState(false);
   const navigate               = useNavigate();
 
-  /* простой «fingerprint» */
   const fp = () => navigator.userAgent + Math.random().toString(36).substring(2);
 
   const handleSignIn = async e => {
@@ -30,7 +23,6 @@ function SignIn() {
       });
       console.log(res.code)
 
-      /* ---- 200 OK ---- */
       if (res.ok) {
         const j   = await res.json();
         const tok = j?.data?.accessToken;
@@ -44,7 +36,6 @@ function SignIn() {
         return;
       }
 
-      /* ---- 401 WRONG_CREDENTIALS ---- */
       if (res.status === 401 || res.status === 403) {
         const err = await res.json().catch(() => ({}));
         const code = err.error?.code;
@@ -66,9 +57,6 @@ function SignIn() {
         return;
       }
 
-
-
-      /* ---- другие статусы ---- */
       setIsError(true);
       setMessage('Внутренняя ошибка. Попробуйте позже.');
 
@@ -78,7 +66,6 @@ function SignIn() {
     }
   };
 
-  /* ---- render ---- */
   return (
     <div style={styles.container}>
       <div style={styles.formBox}>

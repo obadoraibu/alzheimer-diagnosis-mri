@@ -105,7 +105,7 @@ func (h *Handler) ListScans(c *gin.Context) {
 		}
 	}
 
-	scans, err := h.service.GetScansByFilters(userID, f)
+	scans, err := h.service.GetScansByFilters(c, userID, f)
 	if err != nil {
 		var appErr *domain.AppError
 		if errors.As(err, &appErr) {
@@ -134,7 +134,7 @@ func (h *Handler) GetScanDetail(c *gin.Context) {
 		return
 	}
 
-	scan, err := h.service.GetScanByID(userID, scanID)
+	scan, err := h.service.GetScanByID(c, userID, scanID)
 	if err != nil {
 		var appErr *domain.AppError
 		if errors.As(err, &appErr) {

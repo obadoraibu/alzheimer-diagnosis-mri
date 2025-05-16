@@ -42,8 +42,14 @@ type Repository interface {
 		scanDate time.Time,
 	) (int64, error)
 	EnqueueScanTask(userID int64, objectName string) error
-	GetScansByFilters(userID int64, filter *domain.ScanFilter) ([]*domain.MRIScan, error)
-	GetScanDetail(userID, scanID int64) (*domain.MRIScanDetail, error)
+	GetScansByFilters(
+		ctx context.Context,
+		userID int64,
+		filter *domain.ScanFilter,
+	) ([]*domain.MRIScan, error)
+	GetScanByID(
+		ctx context.Context,
+		userID, scanID int64) (*domain.MRIScanDetail, error)
 
 	PresignedGetObject(objectName string) (*url.URL, error)
 

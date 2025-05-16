@@ -18,22 +18,18 @@ function Home() {
   const navigate = useNavigate();
   const api      = useApi();
 
-  /* вкладки / профиль */
   const [activeTab, setActiveTab] = useState('studies');
   const [isAdmin,   setIsAdmin]   = useState(false);
   const [profile,   setProfile]   = useState(null);
 
-  /* «версии» списков: при ++ заставляют вложенные табы перезагрузиться */
   const [scanVer, setScanVer]  = useState(0);
   const [userVer, setUserVer]  = useState(0);
 
-  /* модалки */
   const [scanModal,  setScanModal]  = useState(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editUser,   setEditUser]   = useState(null);
 
-  /* ───────── initial auth / profile ───────── */
   useEffect(() => {
     if (!localStorage.getItem('accessToken')) {
       navigate('/sign-in');
@@ -50,10 +46,8 @@ function Home() {
         if (me.role === 'admin') setActiveTab('admin');
       }
     });
-    // eslint-disable-next-line
   }, []);
 
-  /* logout */
   const logout = useCallback(
     () =>
       fetch(`${BASE_URL}/revoke`, { method: 'POST', credentials: 'include' }).finally(() => {
@@ -63,21 +57,18 @@ function Home() {
     [navigate]
   );
 
-  /* открыть детали снимка */
   const openScanDetail = async id => {
     const r = await api(`/scans/${id}`);
     if (r.ok) setScanModal((await r.json()).data);
   };
 
-  /* admin callbacks */
   const handleEdit   = u => setEditUser(u);
   const handleDelete = async u => {
     if (!window.confirm(`Сделать пользователя ${u.username} suspended?`)) return;
     const r = await api(`/admin/users/${u.id || u.ID}`, { method: 'DELETE' });
-    if (r.ok) setUserVer(v => v + 1);                     // ► обновить таблицу
+    if (r.ok) setUserVer(v => v + 1);                     
   };
 
-  /* колбэки, приходящие из модалок */
   const onScanChange = () => setScanVer(v => v + 1);
   const onUserChange = () => setUserVer(v => v + 1);
 

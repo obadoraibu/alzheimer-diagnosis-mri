@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { homeStyles as styles } from '../styles/styles';
 
-/* упрощённый label-row */
 const Row = ({ label, children }) => (
   <div style={{ marginBottom: 20 }}>
     <label style={{ ...styles.label, display: 'block', marginBottom: 6 }}>{label}</label>
@@ -10,7 +9,6 @@ const Row = ({ label, children }) => (
 );
 
 export default function UploadModal({ api, close, onSuccess }) {
-  /* локальный state */
   const [name,     setName]     = useState('');
   const [gender,   setGender]   = useState('Male');
   const [age,      setAge]      = useState('');
@@ -18,7 +16,6 @@ export default function UploadModal({ api, close, onSuccess }) {
   const [file,     setFile]     = useState(null);
   const [loading,  setLoading]  = useState(false);
 
-  /* отправка */
   const handleSubmit = async e => {
     e.preventDefault();
 
@@ -50,8 +47,6 @@ export default function UploadModal({ api, close, onSuccess }) {
     }
   };
 
-
-  /* кастомный radio-button */
   const Radio = ({ value, children }) => (
     <label
       style={{

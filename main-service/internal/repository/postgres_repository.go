@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
@@ -318,35 +320,45 @@ func (r *Repository) SaveScanMetadata(
 	return scanID, nil
 }
 
-func (r *Repository) GetScansByFilters(userID int64, filter *domain.ScanFilter) ([]*domain.MRIScan, error) {
+func (r *Repository) GetScansByFilters(
+	ctx context.Context,
+	userID int64,
+	filter *domain.ScanFilter,
+) ([]*domain.MRIScan, error) {
+
+	tx, err := r.Postgres.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if err := setUserCtx(tx, ctx, userID); err != nil {
+		return nil, err
+	}
+
 	query := `
-		SELECT id, user_id, patient_name, patient_gender, patient_age, scan_date, created_at, status
-		FROM mri_scans
-		WHERE user_id = $1
+		SELECT id, user_id, patient_name, patient_gender, patient_age,
+		       scan_date, created_at, status
+		FROM   mri_scans
 	`
+	args := []any{}
+	arg := func(v any) string { args = append(args, v); return fmt.Sprintf("$%d", len(args)) }
 
-	args := []interface{}{userID}
-	argIdx := 2
-
-	if filter.ScanID != nil {
-		query += fmt.Sprintf(" AND id = $%d", argIdx)
-		args = append(args, *filter.ScanID)
-		argIdx++
+	where := "WHERE TRUE"
+	if filter != nil {
+		if filter.ScanID != nil {
+			where += " AND id = " + arg(*filter.ScanID)
+		}
+		if filter.UploadedFrom != nil {
+			where += " AND created_at >= " + arg(*filter.UploadedFrom)
+		}
+		if filter.UploadedTo != nil {
+			where += " AND created_at <= " + arg(*filter.UploadedTo)
+		}
 	}
-	if filter.UploadedFrom != nil {
-		query += fmt.Sprintf(" AND created_at >= $%d", argIdx)
-		args = append(args, *filter.UploadedFrom)
-		argIdx++
-	}
-	if filter.UploadedTo != nil {
-		query += fmt.Sprintf(" AND created_at <= $%d", argIdx)
-		args = append(args, *filter.UploadedTo)
-		argIdx++
-	}
+	query += " " + where + " ORDER BY created_at DESC"
 
-	query += " ORDER BY created_at DESC"
-
-	rows, err := r.Postgres.db.Query(query, args...)
+	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +367,7 @@ func (r *Repository) GetScansByFilters(userID int64, filter *domain.ScanFilter) 
 	var scans []*domain.MRIScan
 	for rows.Next() {
 		var s domain.MRIScan
-		err := rows.Scan(
+		if err := rows.Scan(
 			&s.ID,
 			&s.UserID,
 			&s.PatientName,
@@ -364,42 +376,59 @@ func (r *Repository) GetScansByFilters(userID int64, filter *domain.ScanFilter) 
 			&s.ScanDate,
 			&s.CreatedAt,
 			&s.Status,
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
 		scans = append(scans, &s)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
-	return scans, nil
+	return scans, tx.Commit()
 }
 
-func (r *Repository) GetScanDetail(userID, scanID int64) (*domain.MRIScanDetail, error) {
+func (r *Repository) GetScanByID(
+	ctx context.Context,
+	userID, scanID int64,
+) (*domain.MRIScanDetail, error) {
+
+	tx, err := r.Postgres.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if err := setUserCtx(tx, ctx, userID); err != nil {
+		return nil, err
+	}
+
 	query := `
-		SELECT s.id, s.user_id, s.patient_name, s.patient_gender, s.patient_age,
-		       s.scan_date, s.object_name, s.original_filename, s.content_type, s.size,
-		       s.created_at, s.status,
+		SELECT s.id, s.user_id, s.patient_name, s.patient_gender,
+		       s.patient_age, s.scan_date, s.object_name, s.original_filename,
+		       s.content_type, s.size, s.created_at, s.status,
 		       t.diagnosis, t.confidence, t.gradcam_url, t.completed_at
-		FROM mri_scans s
-		LEFT JOIN mri_analysis_results t ON s.id = t.scan_id
-		WHERE s.user_id = $1 AND s.id = $2
+		FROM   mri_scans s
+		LEFT JOIN mri_analysis_results t ON t.scan_id = s.id
+		WHERE  s.id = $1                     -- гарантия уникальности
+		LIMIT  1
 	`
 
 	scan := &domain.MRIScanDetail{}
-	err := r.Postgres.db.QueryRow(query, userID, scanID).Scan(
+	err = tx.QueryRowContext(ctx, query, scanID).Scan(
 		&scan.ID, &scan.UserID, &scan.PatientName, &scan.PatientGender,
-		&scan.PatientAge, &scan.ScanDate, &scan.ObjectName, &scan.OriginalName,
-		&scan.ContentType, &scan.Size, &scan.CreatedAt, &scan.Status,
+		&scan.PatientAge, &scan.ScanDate, &scan.ObjectName,
+		&scan.OriginalName, &scan.ContentType, &scan.Size,
+		&scan.CreatedAt, &scan.Status,
 		&scan.Diagnosis, &scan.Confidence, &scan.GradCAMURL, &scan.CompletedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("scan not found")
+			return nil, fmt.Errorf("scan not found or access denied")
 		}
 		return nil, err
 	}
-
-	return scan, nil
+	return scan, tx.Commit()
 }
 
 func (r *Repository) UpdateUserPassword(userID int64, hash string) error {
@@ -412,5 +441,15 @@ func (r *Repository) UpdateUserPassword(userID int64, hash string) error {
 	`
 
 	_, err := r.Postgres.db.Exec(query, hash, userID)
+	return err
+}
+
+func setUserCtx(tx *sql.Tx, ctx context.Context, userID int64) error {
+	uid := strconv.FormatInt(userID, 10)
+	_, err := tx.ExecContext(
+		ctx,
+		`SELECT set_config('app.user_id', $1, true)`, // true ⇒ LOCAL
+		uid,
+	)
 	return err
 }

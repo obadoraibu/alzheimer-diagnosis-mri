@@ -1,9 +1,8 @@
 import React from 'react';
 import { homeStyles as styles } from '../styles/styles';
 
-/* элемент навигации в хедере */
 const NavBtn = ({ id, active, hidden, onClick, children }) => {
-  if (hidden) return null;                       // полностью убираем из DOM
+  if (hidden) return null;                       
   return (
     <span
       onClick={onClick}
@@ -24,7 +23,7 @@ const NavBtn = ({ id, active, hidden, onClick, children }) => {
  * @param {string}  activeTab
  * @param {fn}      setActiveTab
  * @param {boolean} isAdmin
- * @param {boolean} hideStudies  — скрыть вкладку «Исследования»
+ * @param {boolean} hideStudies 
  * @param {fn}      onLogout
  */
 function HeaderBar({ activeTab, setActiveTab, isAdmin, hideStudies, onLogout }) {

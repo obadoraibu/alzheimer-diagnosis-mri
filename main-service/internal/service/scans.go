@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -30,25 +31,33 @@ func (s *Service) CreateMRIAnalysis(ctx *gin.Context, input *domain.CreateAnalys
 	return nil
 }
 
-func (s *Service) GetScansByFilters(userID int64, filter *domain.ScanFilter) ([]*domain.MRIScan, error) {
-	return s.repo.GetScansByFilters(userID, filter)
+func (s *Service) GetScansByFilters(
+	ctx context.Context,
+	userID int64,
+	filter *domain.ScanFilter,
+) ([]*domain.MRIScan, error) {
+
+	return s.repo.GetScansByFilters(ctx, userID, filter)
 }
 
-func (s *Service) GetScanByID(userId, scanId int64) (*domain.MRIScanDetail, error) {
-	scan, err := s.repo.GetScanDetail(userId, scanId)
+func (s *Service) GetScanByID(
+	ctx context.Context,
+	userID, scanID int64,
+) (*domain.MRIScanDetail, error) {
+
+	scan, err := s.repo.GetScanByID(ctx, userID, scanID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get scan detail: %w", err)
 	}
 
+	// Преобразуем Grad-CAM URL в presigned ссылку (если имеется)
 	if scan.GradCAMURL != nil && *scan.GradCAMURL != "" {
-		presignedURL, err := s.repo.PresignedGetObject(*scan.GradCAMURL)
+		presigned, err := s.repo.PresignedGetObject(*scan.GradCAMURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate presigned url: %w", err)
 		}
-		urlStr := presignedURL.String()
-		//urlStr = strings.Replace(urlStr, "http://minio:9000", "http://localhost:9000", 1)
-		scan.GradCAMURL = &urlStr
+		url := presigned.String()
+		scan.GradCAMURL = &url
 	}
-
 	return scan, nil
 }

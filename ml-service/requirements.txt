@@ -13,3 +13,4 @@ numpy
 scikit-learn
 tqdm
 opencv-python
+scikit-image
